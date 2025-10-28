@@ -1,0 +1,171 @@
+{
+  "version": "1.0.0",
+  "description": "Informations nécessaires à l'interfaçage entre pyUPSTILatex et UPSTI_Document",
+  "author": "Emmanuel Bigeard",
+  "mail": "s2i@bigeard.me",
+  "license": "MIT",
+  "bridge_UPSTI_Document_pyUPSTIlatex": [
+    {
+      "id_pyUPSTIlatex": "id_document",
+      "cmd_tex": "UPSTIidDocument",
+      "type": "str",
+      "default": "0"
+    },
+    {
+      "id_pyUPSTIlatex": "id_parent",
+      "cmd_tex": "UPSTIidParent",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "id_variante",
+      "cmd_tex": "UPSTIvariante",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "id_pyUPSTIlatex": "id_classe",
+      "cmd_tex": "UPSTIidClasse",
+      "type": "int",
+      "default": 2
+    },
+    {
+      "id_pyUPSTIlatex": "classe",
+      "cmd_tex": "UPSTIclasse",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "id_type_document",
+      "cmd_tex": "UPSTIidTypeDocument",
+      "type": "int",
+      "default": 1
+    },
+    {
+      "id_pyUPSTIlatex": "type_document",
+      "cmd_tex": "UPSTItypeDocument",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "id_version_document",
+      "cmd_tex": "UPSTIidVersionDocument",
+      "type": "int",
+      "default": 2
+    },
+    {
+      "id_pyUPSTIlatex": "titre_en_tete",
+      "cmd_tex": "UPSTItitreEnTete",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "version",
+      "cmd_tex": "UPSTInumeroVersion",
+      "type": "str",
+      "default": "X.X"
+    },
+    {
+      "id_pyUPSTIlatex": "auteur",
+      "cmd_tex": "UPSTIauteur",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "is_collegial",
+      "cmd_tex": "UPSTIdocumentCollegial",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "id_pyUPSTIlatex": "is_application_directe",
+      "cmd_tex": "UPSTITDApplicationDirecte",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "id_pyUPSTIlatex": "is_ancien_programme",
+      "cmd_tex": "UPSTIacienProgramme",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "id_pyUPSTIlatex": "duree",
+      "cmd_tex": "UPSTIduree",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "id_matiere",
+      "cmd_tex": "UPSTIidMatiere",
+      "type": "int",
+      "default": 1
+    },
+    {
+      "id_pyUPSTIlatex": "intitule_matiere",
+      "cmd_tex": "UPSTIintituleMatiere",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "sigle_matiere",
+      "cmd_tex": "UPSTIsigleMatiere",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "message",
+      "cmd_tex": "UPSTImessage",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "note_bas_1ere_page",
+      "cmd_tex": "UPSTInoteBasDePremierePage",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "numero",
+      "cmd_tex": "UPSTInumero",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "chapitre",
+      "cmd_tex": "UPSTInumeroChapitre",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "serie",
+      "cmd_tex": "UPSTIserie",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "source",
+      "cmd_tex": "UPSTIsource",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "sous_titre_en_tete",
+      "cmd_tex": "UPSTIsousTitreEnTete",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "titre",
+      "cmd_tex": "UPSTItitre",
+      "type": "str",
+      "default": ""
+    },
+    {
+      "id_pyUPSTIlatex": "preambule_titre",
+      "cmd_tex": "UPSTItitrePreambule",
+      "type": "str",
+      "default": ""
+    }
+  ]
+}
