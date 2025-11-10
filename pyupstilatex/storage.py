@@ -1,4 +1,12 @@
 from pathlib import Path
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class StorageProtocol(Protocol):
+    def read_text(self, source: str) -> str: ...
+    def exists(self, source: str) -> bool: ...
+    def write_text(self, source: str, content: str) -> None: ...
 
 
 class FileSystemStorage:
@@ -26,7 +34,7 @@ class DjangoStorageAdapter:
         return self.storage.exists(source)
 
     def write_text(self, source, content):
-        from django.core.files.base import ContentFile
+        from django.core.files.base import ContentFile  # type: ignore[import-not-found]
 
         if self.exists(source):
             self.storage.delete(source)

@@ -8,8 +8,41 @@ version = "0.1.0"
 description = "Utilitaire pour lire, parser et éditer des fichiers UPSTI LaTeX"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = ["PyYAML>=6.0", "regex>=2023.8.8", "click>=8.0"]
+dependencies = [
+	"PyYAML>=6.0",
+	"regex>=2023.8.8",
+	"click>=8.0",
+	"python-dotenv>=1.0.0",
+]
 authors = [{name = "Emmanuel Bigeard", email = "s2i@bigeard.me"}]
 
 [project.scripts]
 pyUPSTIlatex = "pyupstilatex.cli:main"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+skip-string-normalization = false
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203",  # conflit avec Black sur les slices
+    "W503",  # conflit avec Black sur les opérateurs binaires
+]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W"]
+fix = true
+
+[tool.djlint]
+profile = "django"
+indent = 4
+format_css = true
+format_js = true
+ignore = "H006,H021"
