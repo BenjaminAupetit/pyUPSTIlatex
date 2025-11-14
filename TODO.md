@@ -2,8 +2,6 @@
 
 ## Roadmap
 
-3. Faire la vérification du parser v1
-4. Nettoyer et simplifier logger.py (virer fonctions inutiles, déporter checkfile, vérifier \_annoted_text)
 5. Comprendre exceptions.py
 6. Vérifier si le sorage est utile, sachant que sur le site django, on ne se servira que de get_metadonnees
 7. Faire un nettoyage global pour virer tout ce qui ne sert à rien

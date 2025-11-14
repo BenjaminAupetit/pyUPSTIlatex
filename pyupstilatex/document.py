@@ -354,7 +354,8 @@ class UPSTILatexDocument:
         )
 
     def get_version(self) -> tuple[Optional[str], List[List[str]]]:
-        """Détecte la version du document UPSTI/EPB et retourne (version, erreurs)."""
+        """Détecte la version du document UPSTI v1/UPSTI v2/EPB et
+        retourne (version, erreurs)."""
 
         if self._version is not None:
             # Version déjà détectée (cache)
@@ -362,8 +363,19 @@ class UPSTILatexDocument:
 
         try:
             content = self.read()
-            packages = parse_package_imports(content)
 
+            for line in content.splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+
+                # UPSTI_Document v2 (ligne commençant par % mais pas %%)
+                if stripped.startswith("%") and not stripped.startswith("%%"):
+                    if "%### BEGIN metadonnees_yaml ###" in stripped:
+                        self._version = "UPSTI_Document_v2"
+                        return self._version, []
+
+            packages = parse_package_imports(content)
             if "UPSTI_Document" in packages:
                 self._version = "UPSTI_Document_v1"
                 return self._version, []
@@ -373,21 +385,6 @@ class UPSTILatexDocument:
 
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
-
-        for line in content.splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
-
-            # UPSTI_Document v2 (ligne commençant par % mais pas %%)
-            if stripped.startswith("%") and not stripped.startswith("%%"):
-                if "%### BEGIN metadonnees_yaml ###" in stripped:
-                    self._version = "UPSTI_Document_v2"
-                    return self._version, []
-
-            # Ignorer lignes commentées pour EPB/v1
-            if stripped.startswith("%"):
-                continue
 
         self._version = None
         return None, [["Version non reconnue", "warning"]]
@@ -684,11 +681,11 @@ class UPSTILatexDocument:
             join_key = params.get("join_key", "")
 
             if join_key:
-                raw_value = meta.get("raw_value", "")
+
                 if (
                     not isinstance(raw_value, dict)
                     and raw_value != ""
-                    and raw_value not in (cfg.get(key) or {})
+                    and str(raw_value) not in (cfg.get(key) or {})
                     and not params.get("custom_can_be_not_related", "")
                 ):
                     use_default = bool(params.get("default"))
@@ -714,42 +711,58 @@ class UPSTILatexDocument:
                 meta["raw_value"] = valeurs_par_defaut.get(key, "")
 
             elif default_mode == "batch_pedagogie":
-                # Gestion groupée
-                if not meta_ok["classe"].get("raw_value", ""):
-                    meta_ok["classe"]["raw_value"] = valeurs_par_defaut["classe"]
+                # Gestion groupée pour classe, filière et programme
+                cfg_classe = cfg.get("classe") or {}
+                cfg_filiere = cfg.get("filiere") or {}
 
+                # 1. Gestion de la CLASSE
+                if not meta_ok["classe"].get("raw_value"):
+                    meta_ok["classe"]["raw_value"] = valeurs_par_defaut["classe"]
+                    meta_ok["classe"]["type_meta"] = "default"
+
+                # 2. Gestion de la FILIERE (dépend de la classe)
+                if not meta_ok["filiere"].get("raw_value"):
+                    classe_value = meta_ok["classe"]["raw_value"]
+
+                    # Essayer de déduire la filière depuis la classe
+                    selected_filiere = cfg_classe.get(classe_value, {}).get("filiere")
+
+                    if selected_filiere:
+                        meta_ok["filiere"]["raw_value"] = selected_filiere
+                        # La filière est déduite seulement si la classe
+                        # n'a pas été définie par défaut
+                        if meta_ok["classe"].get("type_meta") != "default":
+                            meta_ok["filiere"]["type_meta"] = "deducted"
+                        else:
+                            meta_ok["filiere"]["type_meta"] = "default"
+                    else:
+                        # Sinon, utiliser la valeur de filière de la classe par défaut
+                        meta_ok["filiere"]["raw_value"] = cfg_classe.get(
+                            valeurs_par_defaut["classe"], {}
+                        ).get("filiere")
+                        meta_ok["filiere"]["type_meta"] = "default"
+
+                # 3. Gestion du PROGRAMME (dépend de la filière)
+                if not meta_ok["programme"].get("raw_value"):
+                    filiere_value = meta_ok["filiere"]["raw_value"]
+
+                    # Déduire le programme depuis la filière
+                    dernier_programme = cfg_filiere.get(filiere_value, {}).get(
+                        "dernier_programme"
+                    )
+                    meta_ok["programme"]["raw_value"] = dernier_programme or ""
+
+                    # Le programme est déduit seulement si la filière
+                    # n'a pas été définie par défaut
+                    if meta_ok["filiere"].get("type_meta") != "default":
+                        meta_ok["programme"]["type_meta"] = "deducted"
+                    else:
+                        meta_ok["programme"]["type_meta"] = "default"
+
+                # 4. Gestion de la MATIERE (indépendant)
                 if not meta_ok["matiere"].get("raw_value", ""):
                     meta_ok["matiere"]["raw_value"] = valeurs_par_defaut["matiere"]
-
-                if not meta_ok["filiere"].get("raw_value", ""):
-                    cfg_classe = cfg.get("classe") or {}
-                    classe_used_for_filiere = meta_ok["classe"]["raw_value"]
-                    classe_predefinie = cfg_classe.get(classe_used_for_filiere, {})
-                    if not classe_predefinie:
-                        classe_used_for_filiere = valeurs_par_defaut["classe"]
-                    meta_ok["filiere"]["raw_value"] = cfg_classe.get(
-                        classe_used_for_filiere, {}
-                    ).get("filiere", "")
-
-                    if not meta_ok["filiere"].get("type_meta"):
-                        meta_ok["filiere"]["type_meta"] = (
-                            "deducted"
-                            if meta_ok["classe"].get("type_meta", "") == ""
-                            and classe_predefinie
-                            else "default"
-                        )
-
-                if not meta_ok["programme"].get("raw_value", ""):
-                    cfg_filiere = cfg.get("filiere") or {}
-                    meta_ok["programme"]["raw_value"] = cfg_filiere.get(
-                        meta_ok["filiere"]["raw_value"], {}
-                    ).get("dernier_programme", "")
-
-                    meta_ok["programme"]["type_meta"] = (
-                        "deducted"
-                        if meta_ok["filiere"].get("type_meta", "") in ["", "deducted"]
-                        else "default"
-                    )
+                    meta_ok["matiere"]["type_meta"] = "default"
 
         # 7. Finalisation des métadonnées
         for key, meta in meta_ok.items():

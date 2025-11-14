@@ -1,6 +1,6 @@
 {
-  "version": "0.1.26",
-  "date": "11/11/2025",
+  "version": "0.2.0",
+  "date": "14/11/2025",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -505,7 +505,7 @@
   "metadonnee": {
     "id_unique": {
       "label": "id",
-      "description": "id unique du document",
+      "description": "`id_unique` : id unique du document\r\n\r\n```\r\nid_unique: EB:1763050876\r\n```\r\n\r\n- **valeurs possibles :** [str]\r\n\r\n- **si absent des métadonnées :** calculé (prefixe et séparateur issus du fichier `.env`, suffixe correspondant au timestamp unix de l'instant de création). Créé lors de la compilation.\r\n\r\n- **contraintes :**\r\n\r\n    - doit être unique\r\n\r\n    - type: str",
       "parametres": {
         "default": "calc",
         "tex_key": "UPSTIidDocument",
@@ -518,7 +518,7 @@
     },
     "variante": {
       "label": "Variante",
-      "description": "Pour choisir le template suivant le lycée ou l'organisme",
+      "description": "`variante` : permet de choisir le template utilisé (en fonction du lycée ou de l'organisme). Les paramètres de chaque variante doivent être définis dans ` pyUPSTIlatex_custom.json`\r\n\r\n```\r\nvariante: jean-zay\r\n```\r\n\r\n- **valeurs possibles :** code d'une des variantes définis dans `pyUPSTIlatex.json` (champ `slug`).\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`\r\n\r\n- **valeur personnalisée :** `{nom: \"str\", parametres: \"dict\"}`",
       "parametres": {
         "default": ".env",
         "tex_key": "UPSTIvariante",
@@ -534,7 +534,7 @@
     },
     "type_document": {
       "label": "Type de document",
-      "description": "id du Type de Document (Cours, TD, TP...)",
+      "description": "`type_document`: type de Document (Cours, TD, TP...)\r\n\r\n```\r\ntype_document: cours\r\n```\r\n\r\n- **valeurs possibles :** code d'une des variantes définis dans `pyUPSTIlatex.json` (clé: `type_document`, champ `slug`).\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`\r\n\r\n- **valeur personnalisée :** `{nom: \"str\", initiales: \"str\"}`",
       "parametres": {
         "default": ".env",
         "tex_key": "UPSTIidTypeDocument",
@@ -559,8 +559,8 @@
       "ordre": 4
     },
     "titre": {
-      "label": "Titre",
-      "description": "Titre du document (dans l'en-tête)",
+      "label": "Titre du document",
+      "description": "`titre`: titre du document (dans le cartouche de la 1ère page)\r\n\r\n```\r\ntitre: Mon titre\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`",
       "parametres": {
         "default": ".env",
         "tex_key": "UPSTItitreEnTete",
@@ -571,11 +571,11 @@
       },
       "ordre": 5
     },
-    "sous_titre": {
-      "label": "Sous-titre",
-      "description": "Sous-titre dans l'en-tête",
+    "titre_entete": {
+      "label": "Titre du document (en-tête de pages)",
+      "description": "`titre_entete`: titre du document (dans l'en-tête des autres pages, si `titre` est trop long, par exemple). S'il n'est pas défini, c'est `titre` qui est appliqué.\r\n\r\n```\r\ntitre_entete: Mon titre dans l'entête\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** on utilise la valeur de `titre`",
       "parametres": {
-        "tex_key": "UPSTIsousTitreEnTete",
+        "tex_key": "UPSTItitreEnTetePages",
         "tex_type": "command_declaration",
         "accepted_types": [
           "text"
@@ -583,11 +583,11 @@
       },
       "ordre": 6
     },
-    "pre_titre_activite": {
-      "label": "Pré-titre de l'activité",
-      "description": "S'affiche sur la ligne précédent le titre",
+    "sous_titre": {
+      "label": "Sous-titre",
+      "description": "`sous_titre`:  sous-titre du document (dans le cartouche de la 1ère page)\r\n\r\n```\r\nsous_titre: Mon sous-titre\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
-        "tex_key": "UPSTItitrePreambule",
+        "tex_key": "UPSTIsousTitreEnTete",
         "tex_type": "command_declaration",
         "accepted_types": [
           "text"
@@ -595,11 +595,11 @@
       },
       "ordre": 7
     },
-    "titre_activite": {
-      "label": "Titre de l'activité",
-      "description": "",
+    "en_tete_principal_custom": {
+      "label": "En-tête principal (custom)",
+      "description": "`en_tete_principal_custom`: contenu de la zone custom (dans le cartouche de la 1ère page)\r\n\r\n```\r\nen_tete_principal_custom: Mon en-tête custom\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
-        "tex_key": "UPSTItitre",
+        "tex_key": "UPSTIenTetePrincipalCustom",
         "tex_type": "command_declaration",
         "accepted_types": [
           "text"
@@ -607,9 +607,33 @@
       },
       "ordre": 8
     },
+    "titre_activite": {
+      "label": "Titre de l'activité",
+      "description": "`titre_activite`: titre de l'activité\r\n\r\n```\r\ntitre_activite: Mon titre d'activité\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "parametres": {
+        "tex_key": "UPSTItitre",
+        "tex_type": "command_declaration",
+        "accepted_types": [
+          "text"
+        ]
+      },
+      "ordre": 9
+    },
+    "pre_titre_activite": {
+      "label": "Pré-titre de l'activité",
+      "description": "`pre_titre_activite`: pré-titre de l'activité (s'affiche sur la ligne précédant le titre de l'activité)\r\n\r\n```\r\npre_titre_activite: Mon pré-titre d'activité\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "parametres": {
+        "tex_key": "UPSTItitrePreambule",
+        "tex_type": "command_declaration",
+        "accepted_types": [
+          "text"
+        ]
+      },
+      "ordre": 10
+    },
     "version": {
       "label": "Version",
-      "description": "Numéro de version du document",
+      "description": "`version`: version du document (en SemVer), sous la forme `major.minor.compilations`. `major` et `minor` sont définis par l'utilisateur, `compilations` est incrémenté à chaque compilation LaTeX.\r\n\r\n```\r\nversion: 0.1.0\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`",
       "parametres": {
         "default": ".env",
         "tex_key": "UPSTInumeroVersion",
@@ -618,11 +642,11 @@
           "text"
         ]
       },
-      "ordre": 9
+      "ordre": 11
     },
     "auteur": {
       "label": "Auteur",
-      "description": "Auteur du document",
+      "description": "`auteur`: auteur du document\r\n\r\n```\r\nauteur: Prénom NOM\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`",
       "parametres": {
         "default": ".env",
         "tex_key": "UPSTIauteur",
@@ -631,33 +655,35 @@
           "str"
         ]
       },
-      "ordre": 10
+      "ordre": 12
     },
     "sources": {
       "label": "Sources",
-      "description": "Sources du document",
+      "description": "`sources`: sources du document (en bas de page).\r\n\r\n```\r\nsources: I.NOM\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTIsource",
-        "tex_type": "batch_sources",
+        "tex_type": "command_declaration",
         "accepted_types": [
-          "dict"
-        ],
-        "validate_rules": {
-          "dict_keys": [
-            "source",
-            "biblio"
-          ],
-          "extended_types": {
-            "biblio": "list",
-            "source": "str"
-          }
-        }
+          "str"
+        ]
       },
-      "ordre": 11
+      "ordre": 13
+    },
+    "bibliographie": {
+      "label": "Bibliographie",
+      "description": "`bibliographie`: éléments bibliographiques de `bibtex`.\r\n\r\n```\r\nbibliographie: [\"biblio_1\", \"biblio_2\"]\r\n```\r\n\r\n- **valeurs possibles :** liste de clés du fichier `.bib`\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "parametres": {
+        "tex_key": "batch",
+        "tex_type": "batch_biblio",
+        "accepted_types": [
+          "list"
+        ]
+      },
+      "ordre": 14
     },
     "matiere": {
       "label": "Matière",
-      "description": "id de la matière",
+      "description": "`matiere`: discipline concernée par le document.\r\n\r\n```\r\nmatiere: S2I\r\n```\r\n\r\n- **valeurs possibles :** nom d'une des matières définies dans `pyUPSTIlatex.json` (clé: `matiere`, champ `nom`).\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`\r\n\r\n- **valeur personnalisée :** `{nom: \"str\", affichage: \"str\"}`",
       "parametres": {
         "default": "batch_pedagogie",
         "tex_key": "UPSTIidMatiere",
@@ -679,11 +705,11 @@
         ],
         "custom_declaration": "{nom: \"str\", affichage: \"str\"}"
       },
-      "ordre": 13
+      "ordre": 15
     },
     "classe": {
       "label": "Classe",
-      "description": "id de la Classe",
+      "description": "`classe`: classe concernée. Peut-être une valeur personnalisée, mais si la valeur est une des clés de l'élément `classe`de `pyUPSTIlatex.json`, on en déduira la filière et le programme concerné.\r\n\r\n```\r\nclasse: PT\r\n```\r\n\r\n- **valeurs possibles :** nom d'une des classes définies dans `pyUPSTIlatex.json` (clé: `classe`, champ `nom`)\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`\r\n\r\n- **valeur personnalisée :** n'importe quelle `str`",
       "parametres": {
         "default": "batch_pedagogie",
         "tex_key": "UPSTIidClasse",
@@ -698,13 +724,14 @@
             "tex_key": "UPSTIclasse"
           }
         ],
+        "custom_type_from_tex": "str",
         "custom_can_be_not_related": "true"
       },
-      "ordre": 14
+      "ordre": 16
     },
     "filiere": {
       "label": "Filière",
-      "description": "Override (sinon, la filière est déduite de la classe)",
+      "description": "`filiere`: filiere utilisée. On peut utiliser cette déclaration pour forcer l'utilisation d'une filière donnée indépendamment de la classe définie.\r\n\r\n```\r\nfiliere: PTSI-PT\r\n```\r\n\r\n- **valeurs possibles :** nom d'une des filieres définies dans `pyUPSTIlatex.json` (clé: `filiere`, champ `nom`)\r\n\r\n- **si absent des métadonnées :** valeur déduite de `classe`\r\n\r\n- **valeur personnalisée :** n'importe quelle `str`",
       "parametres": {
         "default": "batch_pedagogie",
         "join_key": "nom",
@@ -712,11 +739,11 @@
           "str"
         ]
       },
-      "ordre": 15
+      "ordre": 17
     },
     "programme": {
       "label": "Programme",
-      "description": "Version du BO",
+      "description": "`programme`: version du programme (BO) à utiliser pour les compétences. Est généralement définie par son année. On peut utiliser cette déclaration pour forcer l'utilisation d'un programme donné indépendamment de la classe ou de la filière définies.\r\n\r\n```\r\nprogramme: 2021\r\n```\r\n\r\n- **valeurs possibles :** nom d'un des programmes définis dans `pyUPSTIlatex.json` (clé: `programme`, champ `nom`)\r\n\r\n- **si absent des métadonnées :** valeur déduite de `filiere`",
       "parametres": {
         "default": "batch_pedagogie",
         "tex_key": "UPSTI_Document",
@@ -726,11 +753,11 @@
           "text"
         ]
       },
-      "ordre": 16
+      "ordre": 18
     },
     "competences": {
       "label": "Compétences",
-      "description": "",
+      "description": "`competences`: liste des compétences concernées par le document.\r\n\r\n```\r\ncompetences: {PTSI-PT: [\"A1-02\",\"B2-07\"], MPSI-MP: [\"A1-04\",\"B1-01\"]}\r\n```\r\n\r\n- **valeurs possibles :** par filière, une liste de codes de compétences issus des programmes définis dans `pyUPSTIlatex.json` (clé: `competence`)\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTIprogramme",
         "tex_type": "batch_competences",
@@ -742,11 +769,11 @@
           "value_type": "list"
         }
       },
-      "ordre": 17
+      "ordre": 19
     },
     "adapte_pour": {
       "label": "Adapté pour",
-      "description": "Adaptation aux différentes filières",
+      "description": "`adapte_pour`: niveaux de classe pour qui l'activité du document peut aussi être adapté.\r\n\r\n```\r\nadapte_pour: adapte_pour: [\"MP\", \"PSI\", \"PT\", \"TSI2\"]\r\n```\r\n\r\n- **valeurs possibles :** liste de noms de niveaux de classe définis dans `pyUPSTIlatex.json` (clé: `classe`, champ `niveau`)\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "accepted_types": [
           "list"
@@ -755,11 +782,11 @@
           "in": "classe.niveau"
         }
       },
-      "ordre": 18
+      "ordre": 20
     },
     "message": {
       "label": "Message (en-tête)",
-      "description": "Message affiché dans l'en-tête",
+      "description": "`message`: message personnalisé (dans le cartouche de la 1ère page)\r\n\r\n```\r\nmessage: Mon message\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTImessage",
         "tex_type": "command_declaration",
@@ -767,11 +794,11 @@
           "text"
         ]
       },
-      "ordre": 20
+      "ordre": 21
     },
     "duree": {
       "label": "Durée",
-      "description": "Durée de l'activité",
+      "description": "`duree`: durée de l'activité\r\n\r\n```\r\nduree: 1h\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTIduree",
         "tex_type": "command_declaration",
@@ -779,11 +806,11 @@
           "text"
         ]
       },
-      "ordre": 21
+      "ordre": 22
     },
     "serie": {
       "label": "Série",
-      "description": "Numéro de la série",
+      "description": "`serie`: numéro de la série (exemple : série de TP n°1)\r\n\r\n```\r\nserie: 1\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTIserie",
         "tex_type": "command_declaration",
@@ -791,11 +818,11 @@
           "text"
         ]
       },
-      "ordre": 22
+      "ordre": 23
     },
     "numero": {
       "label": "Numéro",
-      "description": "Numéro du document (TP n°1, DS n°2, etc.)",
+      "description": "`numero`: numéro de l'activité (exemples: TP1, DS2, DM3...)\r\n\r\n```\r\nnumero: 2\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTInumero",
         "tex_type": "command_declaration",
@@ -803,11 +830,11 @@
           "text"
         ]
       },
-      "ordre": 23
+      "ordre": 24
     },
     "chapitre": {
       "label": "Chapitre",
-      "description": "Numéro du chapitre",
+      "description": "`chapitre`: numéro du chapitre\r\n\r\n```\r\nchapitre: 3\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTInumeroChapitre",
         "tex_type": "command_declaration",
@@ -815,23 +842,11 @@
           "text"
         ]
       },
-      "ordre": 24
-    },
-    "is_collegial": {
-      "label": "Document collégial",
-      "description": "",
-      "parametres": {
-        "tex_key": "UPSTIdocumentCollegial",
-        "tex_type": "command_declaration",
-        "accepted_types": [
-          "bool"
-        ]
-      },
       "ordre": 25
     },
     "is_application_directe": {
       "label": "Application directe du cours",
-      "description": "",
+      "description": "`is_application_directe`: définit si le document est une application directe du cours ou non.\r\n\r\n```\r\nis_application_directe: true\r\n```\r\n\r\n- **valeurs possibles :** `bool`\r\n\r\n- **si absent des métadonnées :** `false`",
       "parametres": {
         "tex_key": "UPSTITDApplicationDirecte",
         "tex_type": "command_declaration",
@@ -843,7 +858,7 @@
     },
     "note_bas_1ere_page": {
       "label": "Note de bas de 1ère page",
-      "description": "",
+      "description": "`note_bas_1ere_page`: apparaît dans le footer de la 1ère page.\r\n\r\n```\r\nnote_bas_1ere_page: D'après Banque PT 2025\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTInoteBasDePremierePage",
         "tex_type": "command_declaration",
@@ -853,9 +868,21 @@
       },
       "ordre": 27
     },
+    "is_collegial": {
+      "label": "Document collégial",
+      "description": "`is_collegial`: définit si le document a été créé par une équipe, et non par une personne seule.\r\n\r\n```\r\nis_collegial: true\r\n```\r\n\r\n- **valeurs possibles :** `bool`\r\n\r\n- **si absent des métadonnées :** `false`",
+      "parametres": {
+        "tex_key": "UPSTIdocumentCollegial",
+        "tex_type": "command_declaration",
+        "accepted_types": [
+          "bool"
+        ]
+      },
+      "ordre": 28
+    },
     "macro_competences_calculees": {
       "label": "Macro-compétences (Calculées)",
-      "description": "",
+      "description": "`macro_competences_calculees` : liste et poids des macro-compétences dans le document, calculés automatiquement à partir des compétences définies dans `competences`. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `macro_competences_forcees`).\r\n\r\n```\r\nmacro_competences_calculees: {analyser: 80, modeliser: 15, resoudre: 5}\r\n```\r\n\r\n- **valeurs possibles :** macro_competences définies dans `pyUPSTIlatex.json` (clé: `macro_competence`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
         "accepted_types": [
           "dict"
@@ -870,7 +897,7 @@
     },
     "domaines_calcules": {
       "label": "Domaines (Calculés)",
-      "description": "",
+      "description": "`domaines_calcules` : liste et poids des grands domaines du programme, calculés automatiquement après analyse du code LaTeX. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `domaines_forces`).\r\n\r\n```\r\ndomaines_calcules: {meca: 80, autom: 15, construction: 5}\r\n```\r\n\r\n- **valeurs possibles :** domaines définies dans `pyUPSTIlatex.json` (clé: `domaine`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
         "accepted_types": [
           "dict"
@@ -885,7 +912,7 @@
     },
     "difficulte_calculee": {
       "label": "Difficulté (Calculée)",
-      "description": "",
+      "description": "`difficulte_calculee` : difficulté calculée à partir des difficultés de chaque question/activité. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `difficulte_forcee`).\r\n\r\n```\r\ndifficulte_calculee: 60\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
         "accepted_types": [
           "int"
@@ -898,7 +925,7 @@
     },
     "hors_programme_calcule": {
       "label": "Hors programme (Calculé)",
-      "description": "",
+      "description": "`hors_programme_calcule` : pourcentage de hors programme dans l'activité. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `hors_programme_force`).\r\n\r\n```\r\nhors_programme_calcule: 20\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
         "accepted_types": [
           "int"
@@ -911,7 +938,7 @@
     },
     "macro_competences_forcees": {
       "label": "Macro-compétences (Forcées)",
-      "description": "",
+      "description": "`macro_competences_forcees` : liste et poids des macro-compétences dans le document, définis \"en dur\". Va overrider la valeur de  `macro_competences_calculees`.\r\n\r\n```\r\nmacro_competences_forcees: {analyser: 80, modeliser: 15, resoudre: 5}\r\n```\r\n\r\n- **valeurs possibles :** macro_competences définies dans `pyUPSTIlatex.json` (clé: `macro_competence`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `macro_competences_calculees`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
         "accepted_types": [
           "dict"
@@ -924,9 +951,9 @@
       },
       "ordre": 33
     },
-    "domaines_forcees": {
+    "domaines_forces": {
       "label": "Domaines (Forcés)",
-      "description": "",
+      "description": "`domaines_forces` : liste et poids des grands domaines du programme, définis \"en dur\". Va overrider la valeur de  `domaines_calcules`.\r\n\r\n```\r\ndomaines_forces: {meca: 80, autom: 15, construction: 5}\r\n```\r\n\r\n- **valeurs possibles :** domaines définies dans `pyUPSTIlatex.json` (clé: `domaine`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `domaines_calcules`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
         "accepted_types": [
           "dict"
@@ -941,7 +968,7 @@
     },
     "difficulte_forcee": {
       "label": "Difficulté (Forcée)",
-      "description": "",
+      "description": "`difficulte_forcee` : difficulté de l'activité. Va overrider `difficulte_calculee`.\r\n\r\n```\r\ndifficulte_forcee: 60\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `difficulte_calculee`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
         "accepted_types": [
           "int"
@@ -954,7 +981,7 @@
     },
     "hors_programme_force": {
       "label": "Hors programme (Forcé)",
-      "description": "",
+      "description": "`hors_programme_force` : pourcentage de hors programme dans l'activité. Va overrider `hors_programme_calcule`.\r\n\r\n```\r\nhors_programme_calcule: 20\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `hors_programme_calcule`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
         "accepted_types": [
           "int"

@@ -78,18 +78,18 @@ def parse_metadonnees_tex(
     result: Dict[str, Any] = {}
     errors: List[List[str]] = []
 
-    def _resolve_rel_value(section_key: str, raw: Any) -> Optional[str]:
+    def _resolve_rel_value(section_key: str, raw: Any, tex_key: str) -> Optional[str]:
         """
         Résout la valeur relationnelle en renvoyant la clé du mapping
         cfg[section_key].
         """
         mapping = cfg.get(section_key) or {}
         if not isinstance(mapping, dict):
-            return str(raw)
+            return str(raw), False
 
         # Déjà une clé existante
         if str(raw) in mapping:
-            return str(raw)
+            return str(raw), True
 
         # Essayer via id_upsti_document (numérique)
         try:
@@ -101,20 +101,15 @@ def parse_metadonnees_tex(
             if not isinstance(obj, dict):
                 continue
             if raw_int is not None and obj.get("id_upsti_document") == raw_int:
-                return k
-            if str(obj.get("slug", "")) == str(raw):
-                return k
-            if str(obj.get("nom", "")) == str(raw):
-                return k
-            if str(obj.get("initiales", "")) == str(raw):
-                return k
+                return k, True
 
-        return None
+        return f"\\{tex_key} = {raw}", False
 
     # Parcours des métadonnées
     for key, m in cfg_meta.items():
         params = m.get("parametres", {})
         tex_key = params.get("tex_key")
+
         if not tex_key:
             continue
 
@@ -127,11 +122,20 @@ def parse_metadonnees_tex(
 
             valeur = parsed.get("value")
 
+            if "bool" in params.get("accepted_types", []):
+                if str(valeur).strip() in ("1", "true", "True", "yes", "on"):
+                    valeur = True
+                else:
+                    valeur = None
+
             if params.get("join_key"):
                 custom_tex_keys = params.get("custom_tex_keys")
+
                 if custom_tex_keys and valeur == "0":
-                    valeur = {}
-                    missing_custom_fields: List[str] = []
+                    is_str = params.get("custom_type_from_tex") == "str"
+                    valeur = "" if is_str else {}
+                    missing_custom_fields: list[str] = []
+
                     for custom_tex_key in custom_tex_keys:
                         parsed_custom = find_tex_entity(
                             text, custom_tex_key["tex_key"], kind="command_declaration"
@@ -139,20 +143,29 @@ def parse_metadonnees_tex(
                         tmp_valeur = (
                             parsed_custom.get("value") if parsed_custom else None
                         )
+
                         if tmp_valeur is None:
                             missing_custom_fields.append(custom_tex_key["tex_key"])
-                        valeur[custom_tex_key["champ"]] = tmp_valeur
+
+                        if is_str:
+                            valeur = tmp_valeur
+                        else:
+                            valeur[custom_tex_key["champ"]] = tmp_valeur
 
                     if missing_custom_fields:
                         msg = (
                             f"{tex_key} est égal à 0 (valeur custom), "
-                            "mais il manque des valeurs pour : "
-                            + ", ".join(missing_custom_fields)
+                            f"mais il manque des valeurs pour : "
+                            f"{', '.join(missing_custom_fields)}"
                         )
                         errors.append([msg, "warning"])
+
                 else:
-                    valeur_associated = _resolve_rel_value(key, valeur)
-                    if valeur_associated is not None:
+                    valeur_associated, join_ok = _resolve_rel_value(
+                        key, valeur, tex_key
+                    )
+
+                    if valeur_associated is not None and join_ok:
                         valeur = valeur_associated
                     else:
                         msg = (
@@ -160,8 +173,10 @@ def parse_metadonnees_tex(
                             "On va utiliser la valeur par défaut."
                         )
                         errors.append([msg, "warning"])
-                        valeur = ""
-            result[key] = valeur
+                        valeur = None
+
+            if valeur is not None:
+                result[key] = valeur
 
         elif tex_type == "package_option_programme":
             parsed = find_tex_entity(text, tex_key, kind="package_options")
@@ -180,16 +195,17 @@ def parse_metadonnees_tex(
         elif tex_type == "batch_competences":
             competences: List[str] = []
 
+            # Parse de \UPSTIprogramme
             parsed = find_tex_entity(text, "UPSTIprogramme", kind="command_declaration")
-            if not parsed or not parsed.get("value"):
-                continue
+            if parsed and parsed.get("value"):
+                matches = re.findall(r"\\UPSTIcomp[PS]\{([^}]+)\}", parsed["value"])
+                competences.extend(m.strip() for m in matches if m.strip())
 
-            matches = re.findall(r"\\UPSTIcomp[PS]\{([^}]+)\}", parsed["value"])
-            competences.extend(m.strip() for m in matches if m.strip())
-
+            # Parse de \UPSTIligneTableauCompetence
             parsed = find_tex_entity(
                 text, "UPSTIligneTableauCompetence", kind="command"
             )
+
             for cmd in parsed or []:
                 args = cmd.get("args") or []
                 if args:
@@ -201,24 +217,18 @@ def parse_metadonnees_tex(
             if competences:
                 result[key] = {"FILIERE_TO_FIND": competences}
 
-        elif tex_type == "batch_sources":
-            sources: Dict[str, Any] = {}
-
-            parsed = find_tex_entity(text, "UPSTIsource", kind="command_declaration")
-            if parsed:
-                sources["source"] = parsed.get("value", "")
-
+        elif tex_type == "batch_biblio":
+            print("OK")
             parsed = find_tex_entity(text, "nocite", kind="command")
             if parsed:
-                sources["biblio"] = [
+                elements_biblio = [
                     arg.get("value", "").strip()
                     for cmd in parsed
                     for arg in (cmd.get("args") or [])
                     if arg.get("value", "").strip()
                 ]
-
-            if sources:
-                result[key] = sources
+                if elements_biblio:
+                    result[key] = elements_biblio
 
     # Cas particulier de la filière
     if "competences" in result:
@@ -402,6 +412,11 @@ def parse_tex_command_declaration(line: str) -> Optional[Dict[str, Any]]:
 
         # reculer d’un caractère pour inclure la vraie accolade ouvrante
         value = _extract_braced_value(line, m.end() - 1)
+        # Si la commande est déclarée mais vide (ex: \newcommand{...}{}),
+        # considérer qu'il n'y a rien à extraire.
+        if not value or not value.strip():
+            return None
+
         return {
             "decl": m.group("decl"),
             "name": m.group("name"),
@@ -421,6 +436,10 @@ def parse_tex_command_declaration(line: str) -> Optional[Dict[str, Any]]:
         n_args = int(max(indices)) if indices else 0
         flags = [True] * n_args
         value = _extract_braced_value(line, m.end() - 1)
+        # Même comportement pour def/gdef/... : ignorer si corps vide
+        if not value or not value.strip():
+            return None
+
         return {
             "decl": m.group("decl"),
             "name": m.group("name"),

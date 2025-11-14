@@ -15,10 +15,9 @@ pip install -e .
 #### Fonctionnelles
 
 - version : afficher la version d'un fichier
+- infos : afficher les informations d'un fichier
 
 #### En cours...
-
-- infos : afficher les informations d'un fichier (et sa version), depuis YAML ou si absent, depuis LaTeX (check integrity !!!)
 
 #### ToDev
 
