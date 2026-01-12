@@ -1,0 +1,102 @@
+La connaissance de la syntaxe d'un langage d'Ingénierie Système n'est pas exigible. La structure des diagrammes d'Ingénierie Système (SysML) est fournie. Ils peuvent être proposés à lire ou à compléter.
+
+Il s'agit de prendre en compte les exigences liées au développement durable et sensibiliser aux aspects sociétaux.
+
+La description des chaines fonctionnelles de différents systèmes permet de construire une culture technologique.
+Les chaines fonctionnelles, diagrammes de définition de blocs et diagrammes de bloc interne peuvent être à lire ou à compléter avec les éléments syntaxiques fournis.
+
+L'étude des réseaux de communication est focalisée sur les concepts communs aux protocoles de communication usuels.
+
+La connaissance de la syntaxe d'un langage d'Ingénierie Système n'est pas exigible. La structure des diagrammes d'Ingénierie Système (SysML) est fournie. Ils peuvent être proposés à lire ou à compléter.
+L'évolution temporelle des états et des variables d'un diagramme d'états est représentée sous la forme d'un chronogramme.
+
+Les propriétés physiques des matériaux sont caractérisées grâce aux essais de traction, dureté, résilience et fatigue.
+La connaissance des désignations normalisées des matériaux n'est pas au programme.
+
+Les ajustements normalisés ne sont pas exigibles. Seule la nature des ajustements est à préciser (glissant, incertain et serré).
+Le seul modificateur au programme est l'exigence de l'enveloppe.
+
+Un logiciel de modélisation multiphysique permettant d'assembler des composants technologiques issus d'une bibliothèque est privilégié pour la modélisation des systèmes pluritechnologiques. Les modèles mis en œuvre couvrent différents domaines (électrique, mécanique, thermique, hydraulique et pneumatique).
+
+L'utilisation des transformées de Laplace ne nécessite aucun prérequis. Leur présentation se limite à leurs énoncés et aux propriétés du calcul symbolique strictement nécessaires.
+Les théorèmes de la valeur finale, de la valeur initiale et du retard sont donnés sans démonstration.
+
+L'augmentation de la période d'échantillonnage permet de mettre en évidence les limites du modèle continu.
+Les transformées en z ne sont pas au programme.
+
+Les calculs intégraux des éléments d'inertie (matrice et centre d'inertie) ne donnent pas lieu à évaluation.
+
+La description graphique permet de s'affranchir d'un langage de programmation spécifique.
+
+La modélisation se limite à :
+ - l'étude fonctionnelle des interrupteurs deux ou trois segments ;
+ - l'étude structurelle des convertisseurs à deux ou trois cellules de commutation.
+La synthèse des convertisseurs (modulateurs d'énergie) impose de s'intéresser aux règles d'association des sources parfaites, à leur réversibilité et à la bidirectionnalité des interrupteurs. Elle se limite aux fonctions de conversion continu-continu (hacheur), continu-alternatif (onduleur) et alternatif-continu (redresseur)
+
+La physique des convertisseurs électromécaniques (machines électriques) n'est pas au programme. Les modèles des machines alternatives sont fournis. Le comportement des machines alternatives est étudié en alimentation en fréquence fixe (ou lentement variable) utilisant les modèles linéaires continus statiques.
+Pour les machines alternatives, seule la commande scalaire est étudiée (commande en« U/f » constant).
+Le fonctionnement des machines alimentées en grandeurs alternatives est qualifié en régime permanent dans les quatre quadrants.
+
+Les modèles dynamiques des machines électriques dans le plan (d,q) sont fournis.
+
+Les méthodes de résolution des problèmes hyperstatiques en résistance des matériaux ne sont pas au programme.
+
+La résolution d'équations différentielles et les transformées inverses de Laplace ne sont pas au programme.
+
+Les critères de Routh et de Nyquist, ainsi que les diagrammes de Black-Nichols et de Nyquist, ne sont pas au programme.
+
+La « réécriture des équations » signifie :
+- remettre en forme des équations pour leurs traitements par une bibliothèque ;
+- mettre sous forme matricielle un problème (problème de Cauchy et système linéaire).
+Les méthodes numériques sont introduites au fur et à mesure, en fonction des besoins de la formation. Pour la résolution d'un système d'équations du type A·X = B, l'utilisation d'une bibliothèque préimplémentée est privilégiée.
+Les aspects théoriques liés aux méthodes numériques ne sont pas exigibles (stabilité, convergence, conditionnement de matrices...).
+
+Des bibliothèques préimplémentées sont utilisées.
+
+L'incertitude renvoie à la technologie des appareils de mesure et des capteurs. Il n'est pas souhaité de longs développements théoriques et calculs associés.
+
+Les normes de représentation des schémas pneumatiques, hydrauliques et du langage SysML sont fournies.
+
+Les représentations effectuées « à la main » doivent traduire, sans ambiguïté, les intentions de conception sans se focaliser sur les détails de tracé. La représentation normalisée des éléments standards ne peut être exigée.
+L'écriture des diagrammes SysML se limite à leur complétion et à leur modification.
+
+Cette proposition peut se faire sous forme d'association de blocs.
+Il s'agit d'allouer des composants à la satisfaction d'exigences fonctionnelles et éventuellement de décrire les interfaces entre ces composants.
+L'activité de projet est une modalité pédagogique à privilégier pour développer cette compétence.
+
+Les notions suivantes sont abordées :
+- développement d'un nouveau concept ;
+- sélection des matériaux ayant le moins d'impact environnemental ;
+- réduction de la quantité de matière ;
+- techniques de production ;
+- logistique ;
+- durée de vie du produit ;
+- fin de vie (recyclabilité et valorisation des produits).
+Aucune méthode normalisée ne donne lieu à évaluation.
+
+Des bases de données et des outils logiciels associés permettent de conduire une analyse qualitative et quantitative en utilisant une démarche d'écoconception.
+Les critères économiques de sélection sont évoqués. Seule une connaissance des procédés figurant dans la compétence Réaliser peut être exigée.
+
+Ces compétences sont développées dans des activités de synthèse mobilisant des connaissances dans les différentes parties du programme.
+Les moyens de réalisation de l'établissement scolaire sont utilisés (par exemple les machines à commande numérique ou de prototypage rapide).
+Les compétences attendues sont limitées à :
+- la réalisation d'un prototype ;
+- l'intégration d'une carte de commande dans son environnement matériel.
+L'acquisition de savoir-faire professionnels est exclue.
+
+Des bases de données et des outils logiciels associés permettent de conduire une analyse qualitative et quantitative en utilisant une démarche d'écoconception.
+
+L'analyse des procédés se limite à une approche qualitative.
+La description des procédés et des matériaux associés s'appuie sur :
+- les phénomènes physiques associés aux procédés ;
+- les contraintes technologiques et économiques ;
+- l'influence du procédé sur la géométrie des pièces.
+Les traitements thermiques des aciers se limitent aux aspects fonctionnels. L'étude des phénomènes métallurgiques est exclue.
+
+Pour les moyens d'usinage, la classification des machines à commande numérique est mise en évidence (tours 2 et 3 axes, centres d'usinage 3, 4 et 5 axes).
+La définition détaillée des phases de fabrication n'est pas au programme.
+Pour la mise en position, seul le symbole d'élimination d'un degré de liberté en translation est utilisé.
+
+La réalisation des gammes de mesure n'est pas au programme.
+La métrologie tridimensionnelle se limite aux géométries suivantes : plan, cercle, droite et cylindre de révolution.
+

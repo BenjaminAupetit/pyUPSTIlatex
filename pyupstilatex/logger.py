@@ -60,7 +60,11 @@ def _fmt_resultat(t: str, flag: str = None):
 
 
 def _fmt_resultat_item(t: str):
-    return (f"    │     - {t}", logging.INFO)
+    return (f"    ├─ {t}", logging.INFO)
+
+
+def _fmt_resultat_conclusion(t: str):
+    return (f"    │\n    └─> {t}", logging.INFO)
 
 
 def _fmt_conclusion(t: str):
@@ -81,6 +85,7 @@ DEFAULT_FORMATTERS: Dict[str, Formatter] = {
     "action": _fmt_info,
     "resultat": _fmt_resultat,
     "resultat_item": _fmt_resultat_item,
+    "resultat_conclusion": _fmt_resultat_conclusion,
     "conclusion": _fmt_conclusion,
     "saut": _fmt_empty,
     "separateur1": lambda t: (DEFAULT_SEP1, logging.INFO),
@@ -186,8 +191,11 @@ class MessageHandler:
     def resultat(self, texte, verbose=None, flag=None):
         self.msg("resultat", texte, verbose, flag)
 
-    def resultat_item(self, texte, verbose=None):
-        self.msg("resultat_item", texte, verbose)
+    def resultat_item(self, texte, verbose=None, flag=None):
+        self.msg("resultat_item", texte, verbose, flag)
+
+    def resultat_conclusion(self, texte, verbose=None):
+        self.msg("resultat_conclusion", texte, verbose)
 
     def conclusion(self, texte, verbose=None):
         self.msg("conclusion", texte, verbose)

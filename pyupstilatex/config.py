@@ -13,7 +13,7 @@ Usage:
 Notes:
 - All values are read from os.environ at call time (no persistent cache),
   so changing env at runtime is reflected on next call.
-- For booleans, accepted truthy values: 1, true, yes, y, on; falsy: 0, false, no, n, off.
+- For booleans, accepted values: 1, true, yes, y, on; falsy: 0, false, no, n, off.
 - For paths, get_path returns a pathlib.Path (no existence check).
 """
 
@@ -22,21 +22,20 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 __all__ = [
     "get_str",
     "get_int",
     "get_bool",
     "get_path",
+    "get_list",
     # Dataclasses
-    "OSConfig",
+    "MetaConfig",
     "CompilationConfig",
+    "TraitementParLotConfig",
+    "UploadConfig",
     "PolyTDConfig",
-    "LaTeXConfig",
-    "ZipConfig",
-    "FTPConfig",
-    "DBConfig",
     "AppConfig",
     "load_config",
 ]
@@ -87,62 +86,78 @@ def get_path(key: str, default: Optional[str | Path] = None) -> Path:
     return Path(val)
 
 
+def get_list(
+    key: str, default: Optional[Iterable[str]] = None, sep: str = ";"
+) -> list[str]:
+    """Return an environment variable as a list of strings, split by `sep`.
+
+    - Trims whitespace around items
+    - Filters out empty segments
+    - If missing, returns list(default) or []
+    """
+    val = os.environ.get(key)
+    if val is None:
+        return list(default) if default is not None else []
+    parts = [p.strip() for p in val.split(sep)]
+    return [p for p in parts if p]
+
+
 # =========================
 # Section-based dataclasses
 # =========================
-
-
 @dataclass(frozen=True)
-class OSConfig:
-    nom_fichier_parametres: str
-    chemin_json_annuaire: Path
-    dossier_upsti_compilation: Path
-    dossier_cible_par_rapport_au_fichier_tex: Path
-    nom_dossier_sources_latex: str
-    format_nom_fichier_version: str
-    extension_fichier_version: str
-    extension_diaporama: str
-    chemin_fichier_parametres_traitement_par_lot: Path
+class MetaConfig:
+    """Valeurs par défaut des métadonnées documents (provenant du .env)."""
+
+    id_document_prefixe: str
+    variante: str
+    matiere: str
+    classe: str
+    type_document: str
+    titre: str
+    version: str
+    auteur: str
 
     @classmethod
-    def from_env(cls) -> "OSConfig":
+    def from_env(cls) -> "MetaConfig":
         return cls(
-            nom_fichier_parametres=get_str(
-                "OS_NOM_FICHIER_PARAMETRES", "@parametres.upsti.ini"
-            )
-            or "@parametres.upsti.ini",
-            chemin_json_annuaire=get_path(
-                "OS_CHEMIN_JSON_ANNUAIRE",
-                "upsti_annuaire_tex/annuaire_fichiers_tex.json",
-            ),
-            dossier_upsti_compilation=get_path(
-                "OS_DOSSIER_UPSTI_COMPILATION", "upsti_compilation"
-            ),
-            dossier_cible_par_rapport_au_fichier_tex=get_path(
-                "OS_DOSSIER_CIBLE_PAR_RAPPORT_AU_FICHIER_TEX", ".."
-            ),
-            nom_dossier_sources_latex=get_str("OS_NOM_DOSSIER_SOURCES_LATEX", "Src")
-            or "Src",
-            format_nom_fichier_version=get_str(
-                "OS_FORMAT_NOM_FICHIER_VERSION", "@_v[XXXX]"
-            )
-            or "@_v[XXXX]",
-            extension_fichier_version=get_str("OS_EXTENSION_FICHIER_VERSION", ".ver")
-            or ".ver",
-            extension_diaporama=get_str("OS_EXTENSION_DIAPORAMA", ".pptx") or ".pptx",
-            chemin_fichier_parametres_traitement_par_lot=get_path(
-                "OS_CHEMIN_FICHIER_PARAMETRES_TRAITEMENT_PAR_LOT",
-                "upsti_outils/parametres_traitement_par_lot.ini",
-            ),
+            id_document_prefixe=get_str("META_DEFAULT_ID_DOCUMENT_PREFIXE", "EB:"),
+            variante=get_str("META_DEFAULT_VARIANTE", "upsti"),
+            matiere=get_str("META_DEFAULT_MATIERE", "S2I"),
+            classe=get_str("META_DEFAULT_CLASSE", "PT"),
+            type_document=get_str("META_DEFAULT_TYPE_DOCUMENT", "cours"),
+            titre=get_str("META_DEFAULT_TITRE", "Titre par défaut"),
+            version=get_str("META_DEFAULT_VERSION", "0.1"),
+            auteur=get_str("META_DEFAULT_AUTEUR", "Emmanuel BIGEARD"),
         )
 
 
 @dataclass(frozen=True)
 class CompilationConfig:
+    """Valeurs par défaut pour la compilation, provenant du .env"""
+
+    # Valeurs par défaut des paramètres de compilation
+    compiler: bool
+    renommer_automatiquement: bool
+    versions_a_compiler: list[str]
+    versions_accessibles_a_compiler: list[str]
+    est_un_document_a_trous: bool
+    copier_pdf_dans_dossier_cible: bool
+    upload: bool
+    dossier_ftp: str
+
+    # Paramètres de compilation LaTeX
     nombre_compilations_latex: int
+
+    # Compilation rapide et OS
+    nom_fichier_parametres_compilation: str
+    extension_fichier_metadonnees: str
+    format_nom_fichier: str
+    dossier_cible_par_rapport_au_fichier_tex: str
     copier_fichier_version: bool
-    mise_a_jour_annuaire_fichiers_tex: bool
-    upload_fichier_preview: bool
+    format_nom_fichier_version: str
+    dossier_sources_latex: str
+    dossier_tmp_pour_zip: str
     suffixe_nom_fichier_prof: str
     suffixe_nom_fichier_a_trous: str
     suffixe_nom_diaporama: str
@@ -151,29 +166,110 @@ class CompilationConfig:
     @classmethod
     def from_env(cls) -> "CompilationConfig":
         return cls(
-            nombre_compilations_latex=get_int(
-                "COMPILATION_NOMBRE_COMPILATIONS_LATEX", 2
-            )
-            or 2,
-            copier_fichier_version=get_bool("COMPILATION_COPIER_FICHIER_VERSION", True),
-            mise_a_jour_annuaire_fichiers_tex=get_bool(
-                "COMPILATION_MISE_A_JOUR_ANNUAIRE_FICHIERS_TEX", True
+            # Defaults (from COMPILATION_DEFAUT_* env vars)
+            compiler=get_bool("COMPILATION_DEFAUT_COMPILER", True),
+            renommer_automatiquement=get_bool(
+                "COMPILATION_DEFAUT_RENOMMER_AUTOMATIQUEMENT", True
             ),
-            upload_fichier_preview=get_bool("COMPILATION_UPLOAD_FICHIER_PREVIEW", True),
+            versions_a_compiler=get_list(
+                "COMPILATION_DEFAUT_VERSIONS_A_COMPILER", default=[], sep=","
+            ),
+            versions_accessibles_a_compiler=get_list(
+                "COMPILATION_DEFAUT_VERSIONS_ACCESSIBLES_A_COMPILER",
+                default=[],
+                sep=",",
+            ),
+            est_un_document_a_trous=get_bool(
+                "COMPILATION_DEFAUT_EST_UN_DOCUMENT_A_TROUS", False
+            ),
+            copier_pdf_dans_dossier_cible=get_bool(
+                "COMPILATION_DEFAUT_COPIER_PDF_DANS_DOSSIER_CIBLE", True
+            ),
+            upload=get_bool("COMPILATION_DEFAUT_UPLOAD", True),
+            dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
+            # Paramètres de compilation LaTeX
+            nombre_compilations_latex=get_int(
+                "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2
+            ),
+            # Compilation rapide et OS
+            nom_fichier_parametres_compilation=get_str(
+                "COMPILATION_OS_NOM_FICHIER_PARAMETRES_COMPILATION",
+                "@parametres.pyUPSTIlatex.yaml",
+            ),
+            extension_fichier_metadonnees=get_str(
+                "COMPILATION_OS_EXTENSION_FICHIER_METADONNEES", ".meta.json"
+            ),
+            format_nom_fichier=get_str(
+                "COMPILATION_OS_FORMAT_NOM_FICHIER",
+                "{thematique.code}-{classe.niveau}-{titre}",
+            ),
+            dossier_cible_par_rapport_au_fichier_tex=get_str(
+                "COMPILATION_OS_DOSSIER_CIBLE_PAR_RAPPORT_AU_FICHIER_TEX", ".."
+            ),
+            copier_fichier_version=get_bool(
+                "COMPILATION_OS_COPIER_FICHIER_VERSION", True
+            ),
+            format_nom_fichier_version=get_str(
+                "COMPILATION_OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
+            ),
+            dossier_sources_latex=get_str(
+                "COMPILATION_OS_DOSSIER_SOURCES_LATEX", "Src"
+            ),
+            dossier_tmp_pour_zip=get_str(
+                "COMPILATION_OS_DOSSIER_TMP_POUR_ZIP", "tempZip"
+            ),
             suffixe_nom_fichier_prof=get_str(
-                "COMPILATION_SUFFIXE_NOM_FICHIER_PROF", "-Prof"
-            )
-            or "-Prof",
+                "COMPILATION_OS_SUFFIXE_NOM_FICHIER_PROF", "-prof"
+            ),
             suffixe_nom_fichier_a_trous=get_str(
-                "COMPILATION_SUFFIXE_NOM_FICHIER_A_TROUS", "-Eleve"
-            )
-            or "-Eleve",
+                "COMPILATION_OS_SUFFIXE_NOM_FICHIER_A_TROUS", "-eleve"
+            ),
             suffixe_nom_diaporama=get_str(
-                "COMPILATION_SUFFIXE_NOM_DIAPORAMA", "-Diaporama"
-            )
-            or "-Diaporama",
-            suffixe_nom_sources=get_str("COMPILATION_SUFFIXE_NOM_SOURCES", "-Sources")
-            or "-Sources",
+                "COMPILATION_OS_SUFFIXE_NOM_DIAPORAMA", "-diaporama"
+            ),
+            suffixe_nom_sources=get_str(
+                "COMPILATION_OS_SUFFIXE_NOM_SOURCES", "-sources"
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class TraitementParLotConfig:
+    """Valeurs par défaut pour les traitements par lot, provenant du .env"""
+
+    dossiers_a_traiter: list[str]
+    fichiers_a_exclure: list[str]
+
+    @classmethod
+    def from_env(cls) -> "TraitementParLotConfig":
+        return cls(
+            dossiers_a_traiter=get_list(
+                "TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER", default=[], sep=";"
+            ),
+            fichiers_a_exclure=get_list(
+                "TRAITEMENT_PAR_LOT_FICHIERS_A_EXCLURE", default=[], sep=";"
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class UploadConfig:
+    """Valeurs par défaut pour la gestion de l'upload, provenant du .env"""
+
+    ftp_user: str
+    ftp_password: str
+    ftp_host: str
+    ftp_port: int
+    webhook_url: str
+
+    @classmethod
+    def from_env(cls) -> "UploadConfig":
+        return cls(
+            ftp_user=get_str("UPLOAD_FTP_USER", "ftp_user"),
+            ftp_password=get_str("UPLOAD_FTP_PASSWORD", "ftp_pwd"),
+            ftp_host=get_str("UPLOAD_FTP_HOST", "ftp_host"),
+            ftp_port=get_int("UPLOAD_FTP_PORT", 21),
+            webhook_url=get_str("UPLOAD_WEBHOOK_URL", ""),
         )
 
 
@@ -207,87 +303,21 @@ class PolyTDConfig:
 
 
 @dataclass(frozen=True)
-class LaTeXConfig:
-    prefixe_id_document: str
-    separateur_id_document: str
-
-    @classmethod
-    def from_env(cls) -> "LaTeXConfig":
-        return cls(
-            prefixe_id_document=get_str("LATEX_PREFIXE_ID_DOCUMENT", "EB") or "EB",
-            separateur_id_document=get_str("LATEX_SEPARATEUR_ID_DOCUMENT", ":") or ":",
-        )
-
-
-@dataclass(frozen=True)
-class ZipConfig:
-    dossier_tmp_pour_zip: Path
-
-    @classmethod
-    def from_env(cls) -> "ZipConfig":
-        return cls(dossier_tmp_pour_zip=get_path("ZIP_DOSSIER_TMP_POUR_ZIP", "tempZip"))
-
-
-@dataclass(frozen=True)
-class FTPConfig:
-    user: str
-    password: str
-    host: str
-    port: int
-    dossier_ftp_racine: str
-    dossier_ftp_preview: str
-
-    @classmethod
-    def from_env(cls) -> "FTPConfig":
-        return cls(
-            user=get_str("FTP_USER", "") or "",
-            password=get_str("FTP_PASSWORD", "") or "",
-            host=get_str("FTP_HOST", "") or "",
-            port=get_int("FTP_PORT", 21) or 21,
-            dossier_ftp_racine=get_str("FTP_DOSSIER_FTP_RACINE", "doc_peda")
-            or "doc_peda",
-            dossier_ftp_preview=get_str("FTP_DOSSIER_FTP_PREVIEW", "_preview")
-            or "_preview",
-        )
-
-
-@dataclass(frozen=True)
-class DBConfig:
-    name: str
-    host: str
-    user: str
-    password: str
-
-    @classmethod
-    def from_env(cls) -> "DBConfig":
-        return cls(
-            name=get_str("DB_NAME", "") or "",
-            host=get_str("DB_HOST", "localhost") or "localhost",
-            user=get_str("DB_USER", "") or "",
-            password=get_str("DB_PASSWORD", "") or "",
-        )
-
-
-@dataclass(frozen=True)
 class AppConfig:
-    os: OSConfig
+    meta: MetaConfig
     compilation: CompilationConfig
+    traitement_par_lot: TraitementParLotConfig
+    upload: UploadConfig
     poly_td: PolyTDConfig
-    latex: LaTeXConfig
-    zip: ZipConfig
-    ftp: FTPConfig
-    db: DBConfig
 
     @classmethod
     def from_env(cls) -> "AppConfig":
         return cls(
-            os=OSConfig.from_env(),
+            meta=MetaConfig.from_env(),
             compilation=CompilationConfig.from_env(),
+            traitement_par_lot=TraitementParLotConfig.from_env(),
+            upload=UploadConfig.from_env(),
             poly_td=PolyTDConfig.from_env(),
-            latex=LaTeXConfig.from_env(),
-            zip=ZipConfig.from_env(),
-            ftp=FTPConfig.from_env(),
-            db=DBConfig.from_env(),
         )
 
 

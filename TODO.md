@@ -1,11 +1,21 @@
 # TODO
 
+## En cours
+
+- Compiler:
+  - Récupérer les métadonnées et les paramètres de compilation
+  - Renommer le fichier si nécessaire
+  - Check de doublons id_document sur le site si nécessaire (rajouter url de check dans le .env)
+  - Compilation (s) des fichiers tex
+  - Créer le fichier sources.zip
+  - Copier dans le fichier cible (si param)
+  - Générer le fichier .meta.json (ou .meta.yaml)
+  - Uploader sur le FTP
+  - Envoyer une requete d'actualisation sur le site (rajouter url dans le .env)
+
 ## Roadmap
 
-5. Comprendre exceptions.py
-6. Vérifier si le sorage est utile, sachant que sur le site django, on ne se servira que de get_metadonnees
-7. Faire un nettoyage global pour virer tout ce qui ne sert à rien
-8. Etendre CLI infos aux dossiers (ecrire ce qui permet de balayer les dossiers et de choisir les fichiers corrects)
+1. Script pour corriger les doublons d'id_document
 
 ## CLI
 
@@ -26,3 +36,7 @@
 ## Fonctionnalités
 
 - [ ] Faire un script plus propre de conception de poly de TD : ajout d'une meta : is_in_poly = True/False, compilation dans un seul fichier tex, création de la table des matieres, etc... ou bien on conserve l'étape de transition par le fichier xml... L'idée serait de faire un seul poly en compilant directement les contenus des fichiers tex, sans rajouter de pages blanches, du coup...
+
+## Release
+
+- Faire une copie vide du fichier .env pour la distrib

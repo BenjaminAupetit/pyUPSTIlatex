@@ -1,0 +1,43 @@
+La connaissance de la syntaxe d'un langage d'Ingénierie Système n'est pas exigible. La structure des diagrammes d'Ingénierie Système (SysML) est fournie. Ils peuvent être proposés à lire ou à compléter.
+
+Il s'agit de prendre en compte les exigences liées au développement durable et sensibiliser aux aspects sociétaux.
+
+La description des chaines fonctionnelles de différents systèmes permet de construire une culture technologique.
+Les chaines fonctionnelles, diagrammes de définition de blocs et diagrammes de bloc interne peuvent être à lire ou à compléter avec les éléments syntaxiques fournis.
+
+La connaissance de la syntaxe d'un langage d'Ingénierie Système n'est pas exigible. La structure des diagrammes d'Ingénierie Système (SysML) est fournie. Ils peuvent être proposés à lire ou à compléter.
+L'évolution temporelle des états et des variables d'un diagramme d'états est représentée sous la forme d'un chronogramme.
+
+Un logiciel de modélisation multiphysique permettant d'assembler des composants technologiques issus d'une bibliothèque est privilégié pour la modélisation des systèmes pluritechnologiques. Les modèles mis en œuvre couvrent différents domaines (électrique, mécanique, thermique, hydraulique et pneumatique).
+
+L'utilisation des transformées de Laplace ne nécessite aucun prérequis. Leur présentation se limite à leurs énoncés et aux propriétés du calcul symbolique strictement nécessaires.  Les théorèmes de la valeur finale, de la valeur initiale et du retard sont donnés sans démonstration.
+
+L'augmentation de la période d'échantillonnage permet de mettre en évidence les limites du modèle continu.
+Les transformées en z ne sont pas au programme.
+
+Les calculs intégraux des éléments d'inertie (matrice et centre d'inertie) ne donnent pas lieu à évaluation.
+
+La description graphique permet de s'affranchir d'un langage de programmation spécifique.
+
+La résolution d'équations différentielles et les transformées inverses de Laplace ne sont pas au programme.
+
+Les critères de Routh et de Nyquist, ainsi que les diagrammes de Black-Nichols et de Nyquist, ne sont pas au programme.
+
+La « réécriture des équations » signifie :
+- remettre en forme des équations pour leurs traitements par une bibliothèque ;
+- mettre sous forme matricielle un problème (problème de Cauchy et système linéaire).
+Les méthodes numériques sont introduites au fur et à mesure, en fonction des besoins de la formation. Pour la résolution d'un système d'équations du type A·X = B, l'utilisation d'une bibliothèque pré implémentée est privilégiée.
+Les aspects théoriques liés aux méthodes numériques ne sont pas exigibles (stabilité, convergence, conditionnement de matrices...).
+
+Des bibliothèques préimplémentées sont utilisées.
+
+L'incertitude renvoie à la technologie des appareils de mesure et des capteurs. Il n'est pas souhaité de longs développements théoriques et calculs associés.
+
+Les normes de représentation des schémas pneumatiques, hydrauliques et du langage SysML sont fournies.
+
+L'écriture des diagrammes SysML se limite à leur complétion et à leur modification.
+
+Cette proposition peut se faire sous forme d'association de blocs.
+Il s'agit d'allouer des composants à la satisfaction d'exigences fonctionnelles et éventuellement de décrire les interfaces entre ces composants.
+L'activité de projet est une modalité pédagogique à privilégier pour développer cette compétence.
+

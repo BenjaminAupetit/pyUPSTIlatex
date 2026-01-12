@@ -2,9 +2,9 @@
 
 Utilitaire pour lire, parser et éditer des fichiers UPSTI_LaTeX.
 
-## Install:
+## Install
 
-```
+```bash
 pip install -e .
 ```
 
@@ -16,26 +16,4 @@ pip install -e .
 
 - version : afficher la version d'un fichier
 - infos : afficher les informations d'un fichier
-
-#### En cours...
-
-#### ToDev
-
-- liste : liste les documents contenus dans un dossier qui possèdent tels ou tels attributs (options de package, type, etc...)
-- change-parametre : change la valeur d'un paramètre ou d'une métadonnée
-- compil : compiler un fichier tex
-- quick-compil : compilation rapide
-- migrate : migration vers UPSTI_Document v3
-- create-poly-td : création d'un poly de TD
-- create-poly-colles : création d'un ou des polys de colle
-- merge-pdf : fusionner plusieurs pdf (avec plusieurs pages ou non)
-
-### A partir du site
-
-```
-pyUPSTIlatex inspect path/to/file.tex
-```
-
-```
-pyUPSTIlatex extract-zone path/to/file.tex zone_name
-```
+- liste_fichiers : afficher la liste des fichiers UPSTI_document dans un dossier donné

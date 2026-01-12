@@ -1,0 +1,210 @@
+Les diagrammes SysML, des cas d'utilisation et des exigences, sont présentés à la lecture. Le diagramme des cas d'utilisation peut être proposé à compléter.
+
+Il s'agit de prendre en compte les exigences liées au développement durable et de sensibiliser aux aspects sociétaux.
+L'évaluation de l'impact environnemental et sociétal s'appuie sur les trois piliers du développement durable (social, économique et environnemental).
+Ces notions sont mises en évidence par l'intermédiaire d'un outil numérique adapté.
+L'analyse du cycle de vie se limite à l'étude d'un produit simple ou d'une partie d'un système.
+Une sensibilisation aux principes d'intelligence artificielle et à ses limites est faite à travers quelques exemples pertinents et par la mise en situation des objets d'études lors des travaux dirigés ou des travaux pratiques.
+
+Les diagrammes d'ingénierie système - SysML (définition de blocs, bloc interne) sont proposés à la lecture.
+Dans les diagrammes de bloc interne, les variables efforts et flux pour les domaines électrique, mécanique, thermique et hydraulique peuvent être complétées en s'appuyant sur un document fourni présentant la syntaxe.
+
+La description des chaînes fonctionnelles de différents systèmes permet de construire une culture technologique.
+Les chaînes fonctionnelles sont proposées à la lecture ou à compléter avec les éléments syntaxiques fournis.
+Dans le cas d'un système complexe, l'analyse et la description fonctionnelles doivent être partielles, l'étude se limite à une seule chaîne de puissance.
+
+Les étudiants doivent être capables de justifier un choix qualitatif de constituants de la chaîne de puissance ou d'information.
+L'influence de la fréquence d'échantillonnage et l'intérêt d'un filtre anti-repliement sont illustrés (le théorème de Shannon est donné sans démonstration).
+Le codage d'une information numérique est introduit uniquement sous les formats : décimal, binaire naturel non signé, hexadécimal.
+
+L'étude des réseaux de communication est focalisée sur les concepts communs aux protocoles de communication usuels. Aucune connaissance de réseaux précis n'est requise.
+Les caractéristiques d'une transmission (règles, formats, conventions, débits de transmission) sont illustrées avec un exemple simple type RS232. Pour les autres protocoles, les informations sont fournies.
+Une sensibilisation sur le canal de transmission (rapport signal / bruit) est faite en travaux pratiques.
+
+Les diagrammes d'états sont proposés sur des cas simples (quatre états maximum), en s'appuyant sur un document fourni présentant la syntaxe.
+Le passage d'un chronogramme en diagramme d'états (ou inversement) est mis en évidence.
+
+La nécessité d'asservir un système est justifiée par la présence de perturbations et de performances attendues.
+
+L'interprétation et la vérification de cohérence des résultats obtenus en simulation et/ou expérimentalement permet d'analyser et de proposer des solutions pour minimiser les écarts.
+
+L'utilisation d'un logiciel de modélisation multi-physique permettant d'assembler des constituants issus d'une bibliothèque est privilégiée pour la modélisation des systèmes pluritechnologiques.
+Les modèles mis en œuvre couvrent les domaines électrique, mécanique, thermique et hydraulique.
+Les activités de simulation et d'expérimentation doivent être l'occasion d'une sensibilisation aux limites de validité d'un modèle.
+
+La présentation de la transformée de Laplace se limite à son énoncé et aux propriétés du calcul symbolique strictement nécessaires.
+
+Les abaques et équations nécessaires à l'identification temporelle et fréquentielle sont fournis pour le modèle du second ordre.
+L'accent est mis sur les approximations faites, leur cohérence et domaine de validité par rapport aux objectifs.
+L'étude des systèmes non linéaires n'est pas au programme. Les activités de simulation et d'expérimentation doivent être l'occasion de mettre en évidence les limites des modèles linéaires (présence de saturation, d'hystérésis, de retard, etc.).
+
+Les calculs intégraux des éléments d'inertie (matrice et centre d'inertie) ne donnent pas lieu à évaluation. L'adaptation d'une matrice d'inertie d'un volume élémentaire (cylindre, parallélépipède) est vue lors de problématiques choisies.
+Le théorème de Huygens n'est pas présenté.
+
+Le paramétrage avec les angles d'Euler ou les angles de roulis, de tangage et de lacet est présenté, mais la maîtrise de ce paramétrage n'est pas exigée.
+
+L'hyperstatisme, les résistances au roulement et au pivotement, ainsi que la théorie de Hertz ne sont pas au programme.
+
+Les hypothèses de continuité, d'élasticité, d'homogénéité et d'isotropie des matériaux ainsi que les hypothèses de Navier-Bernoulli et de Barré de Saint-Venant tout comme l'hypothèse des petites perturbations (petites déformations et petits déplacements) sont présentées, mais aucune connaissance spécifique n'est exigible.
+Le programme se limite aux sollicitations traction simple et flexion simple.
+
+La modélisation par éléments finis n'est pas exigible et peut être montrée lors de TP.
+Le diagramme d'états, ou le chronogramme, peut être proposé à lire ou à compléter sur des cas simples (quatre états maximum), en s'appuyant sur un document fourni présentant la syntaxe.
+
+La modélisation se limite à l'étude fonctionnelle des caractéristiques statiques des interrupteurs avec la mise en évidence de l'unidirectionnalité ou la bidirectionnalité en courant ou tension des interrupteurs.
+La modélisation des pertes dans les interrupteurs n'est pas au programme.
+La modélisation se limite aux fonctions de modulation continu-continu (hacheur série et hacheur 4 quadrants), continu-alternatif et alternatif-continu non commandée monophasé PD2 (source de courant constant) et à leurs associations.
+L'intérêt de la commande à modulation de largeur d'impulsion (MLI) sur le modulateur continu-alternatif est montré d'un point de vue spectral. L'obtention de cette commande n'est pas au programme.
+
+La physique des convertisseurs électromécaniques (machines électriques) n'est pas au programme.
+Les modèles des machines alternatives sont fournis et ne sont pas exigibles. Le comportement des machines alternatives est étudié en alimentation à fréquence fixe (ou lentement variable) utilisant les modèles linéaires continus statiques.
+Le fonctionnement des machines (moteur et génératrice) est qualifié en régime permanent dans les quatre quadrants.
+
+La boucle interne de courant (couple) est présentée pour améliorer les performances de la boucle de vitesse angulaire.
+Pour la machine synchrone, l'autopilotage est étudié.
+Seul le pilotage par le stator est étudié pour les machines alternatives.
+
+Les activités de simulation et d'expérimentation permettent de mettre en évidence les limites des modèles linéaires mais l'étude des modèles non-linéaires n'est pas au programme.
+
+La démarche de réglage d'un correcteur proportionnel-intégral est fournie.
+L'influence du retard est montrée lors de séances de travaux pratiques.
+
+La détermination d'une action mécanique inconnue se fait dans le cadre d'un référentiel galiléen.
+La détermination du moment dynamique est faite uniquement en un point fixe ou au centre d'inertie. La détermination des actions mécaniques inconnues peut être menée par l'usage d'un outil de simulation numérique.
+Pour le théorème de l'énergie cinétique, seuls les calculs pour les mouvements élémentaires (rotation, translation) sont au programme. Pour les mouvements combinés, les expressions de l'énergie cinétique sont fournies.
+
+Les méthodes de résolution des problèmes hyperstatiques en résistance des matériaux ne sont pas au programme et les sollicitations ne sont pas combinées.
+
+Les méthodes graphiques peuvent être présentées mais leur maîtrise n'est pas exigée.
+
+Les méthodes graphiques sont présentées pour les solides soumis à trois actions mécaniques maximum, mais leur maîtrise n'est pas exigée.
+Les trains épicycloïdaux ne sont pas au programme.
+
+La détermination du moment dynamique est faite uniquement en un point fixe ou au centre d'inertie. La détermination des actions mécaniques inconnues peut être menée par l'usage d'un outil de simulation numérique.
+Pour le théorème de l'énergie cinétique, seuls les calculs pour les mouvements élémentaires (rotation, translation) sont au programme. Pour les mouvements combinés, les expressions de l'énergie cinétique sont fournies.
+
+Les sollicitations ne sont pas combinées. L'effet du cisaillement est hors programme.
+
+Le calcul des transformées de Laplace et de leurs inverses n'est pas au programme.
+Pour les systèmes d'ordre 2, l'influence du facteur d'amortissement sur l'allure de la réponse en fonction est au programme.
+
+Les diagrammes de Bode réels sont déterminés à l'aide d'outils numériques ou fournis.
+
+Seul le diagramme de Bode est au programme.
+Pour les systèmes d'ordre 2, les abaques et relations nécessaires sont fournies.
+
+Pour le correcteur proportionnel intégral, la démarche de réglage est fournie.
+
+Ces compétences sont acquises dans le cadre du programme d'informatique et sont mises en œuvre lors des travaux pratiques.
+
+Le respect des instructions de sécurité et des normes est une exigence qui s'appuie sur la fourniture des extraits de textes réglementaires.
+La connaissance des normes de sécurité n'est pas exigible.
+
+L'objectif consiste à qualifier et quantifier une performance et/ou renseigner un modèle de comportement.
+
+L'incertitude renvoie à la technologie des appareils de mesure et des capteurs. Il n'est pas exigé de longs développements théoriques et calculs associés.
+
+Ces compétences sont développées et évaluées dans le cadre de travaux pratiques.
+
+Les critères de choix abordés sont liés aux fonctionnalités techniques au coût et à l'impact environnemental.
+
+Les modulateurs et convertisseurs de puissance se limitent aux technologies électrique et mécanique.
+Les choix sont faits à partir de documents techniques fournis en prenant en compte l'impact environnemental.
+
+Le formalisme des structures algorithmiques est donné et le séquentiel est limité à la modification du diagramme d'état.
+L'étude des systèmes combinatoires se limite à l'établissement de la table de vérité (limitée à quatre entrées), des équations logiques (sans réduction) et aux fonctions logiques (sans logigramme).
+
+Le dimensionnement peut se faire à partir des exigences et d'une documentation technique tout en respectant les enjeux environnementaux.
+Pour la chaîne d'information, le dimensionnement concerne les constituants suivants :
+- capteurs (étendue de mesure, précision, et sensibilité) ;
+- convertisseurs analogique numérique et numérique analogique (fréquence d'échantillonnage, résolution et plage de conversion) ;
+- filtre passif (fréquence de coupure, gabarit) ;
+- liaisons série et réseaux (débit de communication).
+Pour la chaîne de puissance, le dimensionnement concerne les constituants suivants :
+- dispositifs de stockage d'énergie ;
+- modulateurs de puissance : grandeurs flux et effort en régime permanent et contrainte maximale ;
+- convertisseurs électromécaniques : couple quadratique (thermique) équivalent ;
+- éléments des transmetteurs de puissance modélisés par des poutres : flèche et coefficient de sécurité vis-à-vis de la contrainte maximale.
+
+Les représentations schématiques technologiques sont fournies.
+Les diagrammes d'ingénierie système sont proposés à la lecture.
+Les outils d'intelligence artificielle peuvent être utilement mobilisés pour extraire les informations, cela doit également être l'occasion de sensibiliser les étudiants au nécessaire esprit critique quant aux résultats produits par un outil d'intelligence artificielle.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

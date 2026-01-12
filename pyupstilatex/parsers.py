@@ -218,7 +218,6 @@ def parse_metadonnees_tex(
                 result[key] = {"FILIERE_TO_FIND": competences}
 
         elif tex_type == "batch_biblio":
-            print("OK")
             parsed = find_tex_entity(text, "nocite", kind="command")
             if parsed:
                 elements_biblio = [
@@ -243,12 +242,22 @@ def parse_metadonnees_tex(
                 filiere = None
             classe = classe.get("nom", default_classe)
 
-        classe_cfg = read_json_config().get("classe") or {}
+        cfg = read_json_config()
+        classe_cfg = cfg.get("classe") or {}
+        filiere_cfg = cfg.get("filiere") or {}
         filiere = classe_cfg.get(classe, {}).get("filiere") or default_filiere
+
+        # Déterminer le programme : soit depuis result["programme"],
+        # soit le dernier programme de la filière
+        programme = result.get("programme")
+        if not programme:
+            programme = filiere_cfg.get(filiere, {}).get("dernier_programme")
 
         comp = result["competences"]
         if "FILIERE_TO_FIND" in comp:
-            comp[filiere] = comp.pop("FILIERE_TO_FIND")
+            codes_competences = comp.pop("FILIERE_TO_FIND")
+            # Format attendu: {'pg': annee, 'cp': [codes]}
+            comp[filiere] = {"pg": programme, "cp": codes_competences}
 
     return result, errors
 

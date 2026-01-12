@@ -1,0 +1,29 @@
+---
+#######################################################################################
+# pyUPSTIlatex - Configuration pour la compilation rapide des fichiers tex
+#--------------------------------------------------------------------------------------
+# Emmanuel Bigeard - s2i@bigeard.me
+#--------------------------------------------------------------------------------------
+# Les options de compilation des fichiers tex sont définies par défaut dans le fichier
+# .env à la racine du projet pyUPSTIlatex.
+#
+# Si ce fichier @parametres.pyUPSTIlatex.yaml est dans le même dossier que le fichier
+# tex à compiler, les valeurs définies ici écraseront les valeurs par défaut du fichier
+# .env (pour le fichier tex de ce dossier uniquement).
+#######################################################################################
+compiler: true
+renommer_automatiquement: true
+versions:
+  - prof
+  - eleve
+versions_accessibles:
+  - dys
+  - malvoyants
+est_un_document_a_trous: true
+copier_pdf_dans_dossier_cible: true
+upload: true
+dossier_ftp: "/test/"
+#######################################################################################
+# NOTE : si ce fichier est absent dans un dossier contenant un fichier tex à compiler,
+#        les valeurs par défaut seront appliquées.
+#######################################################################################

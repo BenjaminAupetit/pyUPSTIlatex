@@ -1,4 +1,3 @@
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -6,15 +5,18 @@ from typing import Dict, List, Optional, Tuple
 
 import yaml
 
-from .exceptions import DocumentParseError
-from .filesystem import check_path_readable, check_path_writable
+from .config import load_config
+from .filesystem import DocumentFile
 from .parsers import (
     parse_metadonnees_tex,
     parse_metadonnees_yaml,
     parse_package_imports,
 )
 from .storage import FileSystemStorage, StorageProtocol
-from .utils import check_types, read_json_config
+from .utils import (
+    check_types,
+    read_json_config,
+)
 
 
 @dataclass
@@ -23,179 +25,73 @@ class UPSTILatexDocument:
     storage: StorageProtocol = field(default_factory=FileSystemStorage)
     strict: bool = False
     require_writable: bool = False
-    _raw: Optional[str] = field(default=None, init=False)
     _metadata: Optional[Dict] = field(default=None, init=False)
+    _compilation_parameters: Optional[Dict] = field(default=None, init=False)
     _commands: Optional[Dict] = field(default=None, init=False)
     _zones: Optional[Dict] = field(default=None, init=False)
     _version: Optional[str] = field(default=None, init=False)
-    _file_exists: Optional[bool] = field(default=None, init=False)
-    _file_readable: Optional[bool] = field(default=None, init=False)
-    _file_readable_reason: Optional[str] = field(default=None, init=False)
-    _file_readable_flag: Optional[str] = field(default=None, init=False)
-    _file_writable: Optional[bool] = field(default=None, init=False)
-    _file_writable_reason: Optional[str] = field(default=None, init=False)
-    _read_encoding: Optional[str] = field(default=None, init=False)
+    _file: Optional[DocumentFile] = field(default=None, init=False)
 
     def __post_init__(self):
-        """Initialise les états du fichier selon le type de stockage."""
-        try:
-            # Cas 1 : stockage local — on peut faire des tests système explicites
-            if isinstance(self.storage, FileSystemStorage):
-                p = Path(self.source)
-                self._file_exists = p.is_file()
+        """Initialise l'accès fichier via DocumentFile."""
+        self._file = DocumentFile(
+            source=self.source,
+            storage=self.storage,
+            strict=self.strict,
+            require_writable=self.require_writable,
+        )
 
-                # Refuse explicitement tout fichier qui n'est pas un .tex ou un .ltx
-                if p.suffix.lower() not in [".tex", ".ltx"]:
-                    self._file_readable = False
-                    self._file_readable_reason = "Le fichier n'est pas un fichier tex"
-                    self._file_readable_flag = "fatal_error"
-                    # Écriture : si le fichier existe on indique l'état,
-                    # sinon on signale inexistant
-                    if self._file_exists:
-                        ok_w, reason_w, _ = check_path_writable(self.source)
-                        self._file_writable = bool(ok_w)
-                        self._file_writable_reason = reason_w
-                    else:
-                        self._file_writable = False
-                        self._file_writable_reason = "Fichier inexistant"
-                else:
-                    # Petit test heuristique pour repérer les binaires
-                    try:
-                        with p.open("rb") as f:
-                            sample = f.read(4096)
-                    except Exception as e:
-                        # Impossible d'ouvrir en binaire -> on considèrera illisible
-                        self._file_readable = False
-                        self._file_readable_reason = f"Lecture binaire impossible: {e}"
-                        self._file_readable_flag = "fatal_error"
-                        self._file_writable = None
-                        self._file_writable_reason = None
-                    else:
-                        if not sample:
-                            # Fichier vide -> considérer lisible (UTF-8)
-                            is_binary = False
-                        elif b"\x00" in sample:
-                            is_binary = True
-                        else:
-                            # Heuristique : ratio d'octets imprimables
-                            printable = 0
-                            for b in sample:
-                                if b in (9, 10, 13) or 32 <= b <= 126:
-                                    printable += 1
-                            non_printable_ratio = 1 - (printable / len(sample))
-                            is_binary = non_printable_ratio > 0.30
+    @classmethod
+    def from_path(
+        cls,
+        path: str,
+        storage: Optional[StorageProtocol] = None,
+        *,
+        strict: bool = False,
+        require_writable: bool = False,
+    ):
+        return cls(
+            source=path,
+            storage=(storage or FileSystemStorage()),
+            strict=strict,
+            require_writable=require_writable,
+        )
 
-                        if is_binary:
-                            self._file_readable = False
-                            self._file_readable_reason = "Fichier binaire détecté"
-                            self._file_readable_flag = "fatal_error"
-                            # Écriture : on laisse l'état vérifié si possible
-                            if self._file_exists:
-                                ok_w, reason_w, _ = check_path_writable(self.source)
-                                self._file_writable = bool(ok_w)
-                                self._file_writable_reason = reason_w
-                            else:
-                                self._file_writable = False
-                                self._file_writable_reason = "Fichier inexistant"
-                        else:
-                            # Texte plausible -> faire la vérification d'encodage
-                            ok_r, reason_r, flag_r = check_path_readable(self.source)
-                            self._file_readable = bool(ok_r)
-                            self._file_readable_reason = reason_r
-                            self._file_readable_flag = flag_r
-                            if flag_r == "warning":
-                                # mémoriser l'encodage fallback pour read()
-                                self._read_encoding = "latin-1"
-                            # Écriture
-                            self._file_writable, self._file_writable_reason, _ = (
-                                check_path_writable(self.source)
-                                if self._file_exists
-                                else (False, "Fichier inexistant", "fatal_error")
-                            )
+    @property
+    def file(self) -> DocumentFile:
+        """Accès direct à l'objet système de fichiers (DocumentFile)."""
+        if self._file is None:
+            raise RuntimeError("DocumentFile non initialisé")
+        return self._file
 
-            # Cas 2 : stockage distant — on ne peut que tester par lecture réelle
-            else:
-                try:
-                    _ = self.storage.read_text(self.source)
-                    self._file_exists = True
-                    self._file_readable = True
-                    self._file_readable_reason = None
-                    self._file_readable_flag = None
-                except UnicodeDecodeError as e:
-                    self._file_exists = True
-                    self._file_readable = False
-                    self._file_readable_reason = f"Encodage illisible: {e}"
-                    self._file_readable_flag = "fatal_error"
-                except Exception as e:
-                    self._file_exists = False
-                    self._file_readable = False
-                    self._file_readable_reason = f"Lecture impossible: {e}"
-                    self._file_readable_flag = "fatal_error"
-
-                # Écriture non testable pour les storages distants
-                self._file_writable = None
-                self._file_writable_reason = None
-
-            # Pré-détection de la version si lisible
-            if self._file_readable:
-                try:
-                    v, _msg, _flag = self.get_version()
-                    # _version est déjà mis à jour par get_version()
-                except Exception:
-                    pass
-
-            # Mode strict : on lève des erreurs précises si accès impossible
-            if self.strict:
-                if not self._file_exists:
-                    raise DocumentParseError(
-                        f"Fichier introuvable ou non fichier: {self.source}"
-                    )
-                if not self._file_readable:
-                    raise DocumentParseError(
-                        f"Fichier illisible: {self.source} — "
-                        f"{self._file_readable_reason or 'raison inconnue'}"
-                    )
-                if self.require_writable:
-                    if self._file_writable is True:
-                        pass
-                    elif self._file_writable is False:
-                        raise DocumentParseError(
-                            f"Fichier non ouvrable en écriture: {self.source} "
-                            f"— {self._file_writable_reason or 'raison inconnue'}"
-                        )
-                    else:
-                        raise DocumentParseError(
-                            f"Capacité d'écriture non vérifiable pour ce stockage: "
-                            f"{self.source}"
-                        )
-        except Exception:
-            # Ne bloque jamais l’instanciation en cas d’erreur inattendue
-            pass
-
-    # Propriétés d'accès simples
+    # Propriétés d'accès simples (délèguent à DocumentFile)
     @property
     def exists(self) -> bool:
-        return bool(self._file_exists)
+        return self.file.exists
 
     @property
     def is_readable(self) -> bool:
-        return bool(self._file_readable)
+        return self.file.is_readable
 
     @property
     def is_writable(self) -> bool:
-        return bool(self._file_writable)
+        return self.file.is_writable
 
     @property
     def readable_reason(self) -> Optional[str]:
-        return self._file_readable_reason
+        return self.file.readable_reason
 
     @property
     def readable_flag(self) -> Optional[str]:
-        return self._file_readable_flag
+        return self.file.readable_flag
 
     @property
     def writable_reason(self) -> Optional[str]:
-        return self._file_writable_reason
+        return self.file.writable_reason
+
+    @property
+    def content(self) -> str:
+        return self.file.read()
 
     @property
     def version(self):
@@ -209,97 +105,159 @@ class UPSTILatexDocument:
             return self._metadata
         return self.get_metadata()[0]
 
-    def check_file(self, mode: str = "read") -> tuple[bool, List[List[str]]]:
-        """Vérifie rapidement l'état du fichier selon le mode demandé.
+    @property
+    def compilation_parameters(self) -> Dict:
+        if self._compilation_parameters is not None:
+            return self._compilation_parameters
+        return self.get_compilation_parameters()[0]
 
-        Retourne (ok, raison, flag) où:
-        - ok: True si tout est OK pour le mode demandé
-        - liste de messages d'erreurs (msg, flag).
+    def compile(self, mode="normal") -> tuple[Optional[Dict], List[List[str]]]:
+        """Compile le document LaTeX.
 
-        Modes supportés:
-        - 'read'  : existence + readable (UTF-8) ; si fallback latin-1 => warning
-        - 'write' : existence + writable (test non destructif pour FileSystemStorage)
-        - 'exists': existence seulement
+        Paramètres
+        ----------
+        mode : str, optional
+            Mode de compilation. Valeurs acceptées :
+            - "deep"  : génère le fichier LaTeX complet à partir des métadonnées
+                         (utile pour les documents `UPSTI_Document_v2`).
+            - "normal": compilation suivie d'un upload si configuré.
+            - "quick" : seulement génération des PDF.
+
+        Retour
+        -----
+        tuple[Optional[Dict], List[List[str]]]
+            Renvoie un tuple `(result, messages)` où `result` est un dictionnaire
+            optionnel contenant des informations sur la compilation (p.ex. chemins,
+            statuts), et `messages` est une liste de paires `[message, flag]` où
+            `flag` est l'un de `info`, `warning`, `error`.
         """
-        mode = (mode or "read").lower()
-        if mode not in ("read", "write", "exists"):
-            return False, [
-                ["Mode doit être 'read', 'write' ou 'exists'.", "fatal_error"]
-            ]
 
-        # Existence
-        if not self._file_exists:
-            return False, [["Fichier introuvable", "fatal_error"]]
+        # 1- Renommer le fichier
+        if mode in ["deep", "normal"] and self.compilation_parameters.get(
+            "renommer_automatiquement", False
+        ):
+            result, errors = self._rename_file()
 
-        if mode == "exists":
-            return True, []
+        # 2- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
+        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
+            result, errors = self._generate_latex_template()
 
-        # Mode lecture
-        if mode == "read":
-            # readable_flag may be 'warning' when latin-1 fallback used
-            if self._file_readable:
-                if self._file_readable_flag == "warning":
-                    return (
-                        True,
-                        [
-                            [
-                                self._file_readable_reason
-                                or "Fichier lu avec fallback d'encodage",
-                                "warning",
-                            ]
-                        ],
-                    )
-                return True, []
-            return False, [
-                [
-                    self._file_readable_reason or "Impossible de lire",
-                    self._file_readable_flag or "error",
-                ]
-            ]
+        # 3- Fichier tex v1 pour la rétrocompatibilité (sera ajouté dans les sources)
+        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
+            result, errors = self._generate_UPSTI_Document_v1_tex_file()
 
-        # Mode écriture
-        if self._file_writable is True:
-            return True, []
-        if self._file_writable is False:
-            return (
-                False,
-                [
-                    [
-                        self._file_writable_reason or "Impossible d'ouvrir en écriture",
-                        "fatal_error",
-                    ]
-                ],
-            )
-        # None => inconnu pour les storages non locaux
-        return (
-            False,
-            [
-                [
-                    self._file_writable_reason
-                    or "Capacité d'écriture non vérifiable pour ce stockage",
-                    "warning",
-                ]
-            ],
-        )
+        # 4- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
+        result, errors = self._compile_tex()
 
-    def get_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Extrait les métadonnées depuis le front matter YAML.
+        # 5- Copie des fichiers dans le dossier cible
+        if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
+            result, errors = self._copy_compiled_files()
 
-        Retourne (metadata, [message, flag]).
+        # 6- Upload (création du fichier meta, du zip, upload et webhook)
+        if mode in ["deep", "normal"] and self.compilation_parameters.get(
+            "upload", False
+        ):
+            result, errors = self._upload()
+
+    def _rename_file(self) -> tuple[Optional[str], List[List[str]]]:
+        """Renomme le fichier source selon les métadonnées (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (nouveau_chemin, messages) où messages est une liste de [message, flag].
+        """
+        # On écrit le nouveau nom et on vérifie s'il a changé
+        return None, []
+
+    def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur le fichier
+            généré, et messages est une liste de [message, flag].
+        """
+        # On génère le code LaTeX complet à partir des métadonnées
+        return None, []
+
+    def _generate_UPSTI_Document_v1_tex_file(
+        self,
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Génère un fichier LaTeX v1 pour rétrocompatibilité (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur le fichier
+            généré, et messages est une liste de [message, flag].
+        """
+        # On génère un fichier LaTeX v1 à partir des métadonnées
+        return None, []
+
+    def _compile_tex(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Compile le fichier LaTeX (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur la compilation,
+            et messages est une liste de [message, flag].
+        """
+        # On compile le fichier LaTeX (pdflatex, xelatex, lualatex, etc.)
+        return None, []
+
+    def _copy_compiled_files(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Copie les fichiers compilés dans le dossier cible (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur la copie,
+            et messages est une liste de [message, flag].
+        """
+        # On copie les fichiers compilés dans le dossier cible
+        return None, []
+
+    def _upload(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Upload les fichiers compilés via FTP/Webhook (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur l'upload,
+            et messages est une liste de [message, flag].
+        """
+        # On crée le zip, le fichier meta, et on upload via FTP/Webhook
+        return None, []
+
+    def _parse_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Extrait les métadonnées depuis le front matter YAML (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (metadata, messages) où messages est une liste de [message, flag].
+            Ne lève jamais d'exception : erreurs converties en messages.
         """
         try:
-            data, errors = parse_metadonnees_yaml(self.read()) or {}
+            data, errors = parse_metadonnees_yaml(self.content) or {}
             return data, errors
         except Exception as e:
             return None, [[f"Erreur de lecture des métadonnées YAML: {e}", "error"]]
 
-    def get_tex_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Extrait les métadonnées depuis les commandes LaTeX (v1).
+    def _parse_tex_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Extrait les métadonnées depuis les commandes LaTeX v1 (méthode interne).
 
-        Retourne (metadata, [message, flag]).
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (metadata, messages) où messages inclut un avertissement de version.
+            Ne lève jamais d'exception : erreurs converties en messages.
         """
         try:
-            data, parsing_errors = parse_metadonnees_tex(self.read()) or {}
+            data, parsing_errors = parse_metadonnees_tex(self.content) or {}
             version_warning = [
                 [
                     "Ce document utilise une ancienne version de UPSTI_Document (v1). "
@@ -312,7 +270,19 @@ class UPSTILatexDocument:
             return None, [[f"Erreur de lecture des métadonnées LaTeX: {e}", "error"]]
 
     def get_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Retourne (metadata, message, flag) en fonction de la version du document."""
+        """Récupère et normalise les métadonnées du document.
+
+        Détecte automatiquement la version (v1/v2/EPB), applique le parser approprié,
+        normalise les données via _format_metadata et met en cache le résultat.
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (metadata_dict, messages) où metadata_dict contient les métadonnées
+            normalisées avec structure {key: {valeur, affichage, initiales, ...}},
+            et messages est une liste de [message, flag] (info/warning/error).
+            Ne lève jamais d'exception.
+        """
         # Réutiliser le cache si les métadonnées ont déjà été extraites
         if self._metadata is not None:
             return self._metadata, []
@@ -333,8 +303,8 @@ class UPSTILatexDocument:
 
         # Associer chaque version à sa fonction de récupération
         sources = {
-            "UPSTI_Document_v1": self.get_tex_metadata,
-            "UPSTI_Document_v2": self.get_yaml_metadata,
+            "UPSTI_Document_v1": self._parse_tex_metadata,
+            "UPSTI_Document_v2": self._parse_yaml_metadata,
         }
 
         if version in sources:
@@ -353,16 +323,85 @@ class UPSTILatexDocument:
             [["Type de document non pris en charge par pyUPSTIlatex", "error"]],
         )
 
-    def get_version(self) -> tuple[Optional[str], List[List[str]]]:
-        """Détecte la version du document UPSTI v1/UPSTI v2/EPB et
-        retourne (version, erreurs)."""
+    def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Récupère les paramètres de compilation du document.
 
-        if self._version is not None:
-            # Version déjà détectée (cache)
-            return self._version, []
+        Charge la configuration centralisée depuis @parametres.pyUPSTIlatex.yaml,
+        puis fusionne les paramètres locaux si un fichier de paramètres existe
+        dans le même répertoire que le document. Résultat mis en cache.
 
+        Retourne
+        --------
+        tuple[Dict, List[List[str]]]
+            (parametres, messages) où parametres contient les clés :
+            - compiler: bool
+            - versions_a_compiler: list[str]
+            - versions_accessibles_a_compiler: list[str]
+            - est_un_document_a_trous: bool
+            - copier_pdf_dans_dossier_cible: bool
+            - upload: bool
+            - dossier_ftp: str
+            Messages contient warnings/erreurs si fichier local invalide.
+        """
+        # Réutiliser le cache si déjà récupéré
+        if self._compilation_parameters is not None:
+            return self._compilation_parameters, []
+
+        errors: List[List[str]] = []
+
+        # Lire la configuration centralisée
+        cfg = load_config()
+        comp = cfg.compilation
+
+        parametres_compilation = {
+            "compiler": bool(comp.compiler),
+            "versions_a_compiler": list(comp.versions_a_compiler),
+            "versions_accessibles_a_compiler": list(
+                comp.versions_accessibles_a_compiler
+            ),
+            "est_un_document_a_trous": bool(comp.est_un_document_a_trous),
+            "copier_pdf_dans_dossier_cible": bool(comp.copier_pdf_dans_dossier_cible),
+            "upload": bool(comp.upload),
+            "dossier_ftp": str(comp.dossier_ftp),
+        }
+
+        # Vérifier si un fichier de paramètres existe dans le même dossier
+        doc_dir = Path(self.source).parent
+        params_file = doc_dir / comp.nom_fichier_parametres_compilation
+
+        if params_file.exists() and params_file.is_file():
+            try:
+                with open(params_file, "r", encoding="utf-8") as f:
+                    custom_params = yaml.safe_load(f)
+                    if isinstance(custom_params, dict):
+                        # Merger les paramètres custom avec les defaults
+                        parametres_compilation.update(custom_params)
+            except Exception as e:
+                errors.append(
+                    [
+                        f"Erreur lors de la lecture du fichier de paramètres: {e}",
+                        "warning",
+                    ]
+                )
+
+        # Mettre en cache
+        self._compilation_parameters = parametres_compilation
+        return parametres_compilation, errors
+
+    def _detect_version(self) -> tuple[Optional[str], List[List[str]]]:
+        """Détecte la version du document en analysant le contenu (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (version_string, messages) où version_string peut être :
+            - "UPSTI_Document_v2" (front-matter YAML)
+            - "UPSTI_Document_v1" (package LaTeX)
+            - "EPB_Document" (ancien format)
+            - None (version non reconnue)
+        """
         try:
-            content = self.read()
+            content = self.content
 
             for line in content.splitlines():
                 stripped = line.strip()
@@ -372,22 +411,40 @@ class UPSTILatexDocument:
                 # UPSTI_Document v2 (ligne commençant par % mais pas %%)
                 if stripped.startswith("%") and not stripped.startswith("%%"):
                     if "%### BEGIN metadonnees_yaml ###" in stripped:
-                        self._version = "UPSTI_Document_v2"
-                        return self._version, []
+                        return "UPSTI_Document_v2", []
 
             packages = parse_package_imports(content)
             if "UPSTI_Document" in packages:
-                self._version = "UPSTI_Document_v1"
-                return self._version, []
+                return "UPSTI_Document_v1", []
             if "EPB_Document" in packages:
-                self._version = "EPB_Document"
-                return self._version, []
+                return "EPB_Document", []
 
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
-        self._version = None
-        return None, [["Version non reconnue", "warning"]]
+        return None, [["Version non reconnue", "fatal_error"]]
+
+    def get_version(self) -> tuple[Optional[str], List[List[str]]]:
+        """Retourne la version du document (avec cache).
+
+        Détecte automatiquement le format du document parmi :
+        - UPSTI_Document_v2 (métadonnées YAML)
+        - UPSTI_Document_v1 (métadonnées LaTeX)
+        - EPB_Document (format non supporté)
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (version, messages) où version est le nom du format détecté ou None.
+            Résultat mis en cache dans self._version.
+        """
+        if self._version is not None:
+            # Version déjà détectée (cache)
+            return self._version, []
+
+        version, errors = self._detect_version()
+        self._version = version
+        return version, errors
 
     def _format_metadata(
         self, data: Dict, *, source: str
@@ -404,20 +461,20 @@ class UPSTILatexDocument:
         cfg = read_json_config()
         cfg_meta = cfg.get("metadonnee") or {}
 
-        # On prépare toutes les valeurs par défaut globales
+        # On prépare toutes les valeurs par défaut globales (via config .env)
         epoch = int(time.time())
-        prefixe_id = os.getenv("META_DEFAULT_ID_DOCUMENT_PREFIXE", "EB")
-        separateur_id = os.getenv("META_DEFAULT_SEPARATEUR_ID_DOCUMENT", ":")
+        cfg_env = load_config()
+        meta_cfg = cfg_env.meta
 
         valeurs_par_defaut = {
-            "id_unique": f"{prefixe_id}{separateur_id}{epoch}",
-            "variante": os.getenv("META_DEFAULT_VARIANTE", "upsti"),
-            "matiere": os.getenv("META_DEFAULT_MATIERE", "S2I"),
-            "classe": os.getenv("META_DEFAULT_CLASSE", "PT"),
-            "type_document": os.getenv("META_DEFAULT_TYPE_DOCUMENT", "cours"),
-            "titre": os.getenv("META_DEFAULT_TITRE", "Titre par défaut"),
-            "version": os.getenv("META_DEFAULT_VERSION", "0.1"),
-            "auteur": os.getenv("META_DEFAULT_AUTEUR", "Emmanuel BIGEARD"),
+            "id_unique": f"{meta_cfg.id_document_prefixe}{epoch}",
+            "variante": meta_cfg.variante,
+            "matiere": meta_cfg.matiere,
+            "classe": meta_cfg.classe,
+            "type_document": meta_cfg.type_document,
+            "titre": meta_cfg.titre,
+            "version": meta_cfg.version,
+            "auteur": meta_cfg.auteur,
         }
 
         # Préparation des champs déclarés et par défaut
@@ -471,7 +528,7 @@ class UPSTILatexDocument:
                 suffix="wrong_type",
             )
 
-        # 3. On vérifie les contraintes spécifiques à certains champs
+        # 3. On vérifie les contraintes spécifiques à certains champs TOCHK
         for key, meta in meta_ok.items():
             params = meta.get("parametres", {})
             rules = params.get("validate_rules", {})
@@ -482,7 +539,7 @@ class UPSTILatexDocument:
 
             use_default = bool(params.get("default"))
 
-            # Règle : dict_keys - les clés doivent être dans une liste définie
+            # Règle : dict_keys - les clés doivent être dans une liste définie TOCHK
             if "dict_keys" in rules and isinstance(raw_value, dict):
                 allowed_keys = set(rules["dict_keys"])
                 actual_keys = set(raw_value.keys())
@@ -497,7 +554,7 @@ class UPSTILatexDocument:
                         suffix="validate_rules",
                     )
 
-            # Règle : keys_in - les clés doivent appartenir aux clés d'un modèle
+            # Règle : keys_in - les clés doivent appartenir aux clés d'un modèle TOCHK
             if "keys_in" in rules and isinstance(raw_value, dict):
                 path = str(rules["keys_in"]).split(".")
                 source = cfg
@@ -559,7 +616,7 @@ class UPSTILatexDocument:
                                 suffix="validate_rules",
                             )
 
-            # Règle : sum - valeurs numériques doivent sommer à une valeur donnée
+            # Règle : sum - valeurs numériques doivent sommer à une valeur donnée TOCHK
             if "sum" in rules and isinstance(raw_value, dict):
                 total = sum(int(v) for v in raw_value.values())
                 expected_total = rules["sum"]
@@ -588,6 +645,7 @@ class UPSTILatexDocument:
 
             # Règle : in - les valeurs doivent être dans une liste définie
             if "in" in rules and isinstance(raw_value, list):
+
                 path = str(rules["in"]).split(".")
                 source = cfg.get(path[0], {})
 
@@ -613,6 +671,99 @@ class UPSTILatexDocument:
                         errors,
                         suffix="validate_rules",
                     )
+
+            # Règle : custom_rule - règles personnalisées complexes
+            if "custom_rule" in rules and isinstance(raw_value, dict):
+                custom_rule = rules["custom_rule"]
+
+                # Compétences
+                if custom_rule == "competences":
+                    raw_value = meta.get("raw_value", {})
+                    competence_cfg = cfg.get("competence") or {}
+                    competence_errors: List[str] = []
+
+                    for filiere, declaration in raw_value.items():
+                        if not isinstance(declaration, dict):
+                            competence_errors.append(
+                                (
+                                    "La déclaration des compétences pour "
+                                    f"'{filiere}' est invalide."
+                                )
+                            )
+                            continue
+
+                        programme_value = declaration.get("pg")
+                        if programme_value in (None, ""):
+                            competence_errors.append(
+                                (
+                                    "La filière '"
+                                    f"{filiere}"
+                                    "' doit indiquer un programme (clé 'pg')."
+                                )
+                            )
+                            continue
+
+                        programme_key = str(programme_value)
+                        filiere_cfg = competence_cfg.get(filiere)
+                        if not isinstance(filiere_cfg, dict):
+                            competence_errors.append(
+                                (
+                                    "La filière '"
+                                    f"{filiere}"
+                                    "' n'existe pas dans la configuration."
+                                )
+                            )
+                            continue
+
+                        programme_cfg = filiere_cfg.get(programme_key)
+                        if not isinstance(programme_cfg, dict):
+                            competence_errors.append(
+                                (
+                                    "Le programme "
+                                    f"{programme_key}"
+                                    " pour la filière "
+                                    f"{filiere}"
+                                    " n'existe pas."
+                                )
+                            )
+                            continue
+
+                        competences_codes = declaration.get("cp", [])
+                        if not isinstance(competences_codes, list):
+                            competence_errors.append(
+                                (
+                                    "Les compétences sélectionnées pour "
+                                    f"'{filiere}'"
+                                    " doivent être une liste (clé 'cp')."
+                                )
+                            )
+                            continue
+
+                        missing_codes = [
+                            code
+                            for code in competences_codes
+                            if code not in programme_cfg
+                        ]
+                        if missing_codes:
+                            competence_errors.append(
+                                (
+                                    "Compétence(s) inconnue(s) pour "
+                                    f"{filiere}"
+                                    " (programme "
+                                    f"{programme_key}"
+                                    f"): {missing_codes}."
+                                )
+                            )
+
+                    if competence_errors:
+                        self._handle_invalid_meta(
+                            meta,
+                            key,
+                            " ".join(competence_errors),
+                            use_default,
+                            errors,
+                            suffix="validate_rules",
+                        )
 
         # 4. Gestion des valeurs custom sous forme de dict.
         for key, meta in meta_ok.items():
@@ -679,9 +830,10 @@ class UPSTILatexDocument:
         for key, meta in meta_ok.items():
             params = meta.get("parametres", {})
             join_key = params.get("join_key", "")
+            raw_value = meta.get("raw_value", "")
 
             if join_key:
-
+                # Cas 1 : valeur inconnue et pas autorisée comme custom
                 if (
                     not isinstance(raw_value, dict)
                     and raw_value != ""
@@ -696,6 +848,21 @@ class UPSTILatexDocument:
                         use_default,
                         errors,
                         suffix="bad_key",
+                    )
+                # Cas 2 : valeur custom autorisée (custom_can_be_not_related = True)
+                elif (
+                    not isinstance(raw_value, dict)
+                    and raw_value != ""
+                    and str(raw_value) not in (cfg.get(key) or {})
+                    and params.get("custom_can_be_not_related", "")
+                ):
+                    meta["display_flag"] = "info"
+                    errors.append(
+                        [
+                            f"Valeur custom autorisée pour '{key}': '{raw_value}' "
+                            "n'existe pas dans la configuration.",
+                            "info",
+                        ]
                     )
 
         # 6. Application des valeurs par défaut (pour les champs required mais vides)
@@ -807,6 +974,7 @@ class UPSTILatexDocument:
         meta["type_meta"] = f"{'default' if use_default else 'ignored'}:{suffix}"
         meta["raw_value"] = ""
         flag = "warning" if use_default else "error"
+
         msg = (
             "On va utiliser la valeur par défaut."
             if use_default
@@ -818,81 +986,3 @@ class UPSTILatexDocument:
                 flag,
             ]
         )
-
-    # ================================================================================
-    # TOCHECK Tout ce qui suit est généré par IA, à vérifier et comprendre
-    # ================================================================================
-
-    def read(self) -> str:
-        if self._raw is None:
-            try:
-                # Si on détecte un encoding fallback pour le stockage local, l'utiliser
-                if isinstance(self.storage, FileSystemStorage) and self._read_encoding:
-                    p = Path(self.source)
-                    self._raw = p.read_text(
-                        encoding=self._read_encoding, errors="strict"
-                    )
-                else:
-                    self._raw = self.storage.read_text(self.source)
-            except Exception as e:
-                raise DocumentParseError(f"Unable to read source {self.source}: {e}")
-        return self._raw
-
-    # def refresh(self):
-    #     """Invalidate les caches internes et relire la source."""
-    #     self._raw = None
-    #     self._metadata = None
-    #     self._commands = None
-    #     self._zones = None
-    #     self._version = None
-    #     return self.read()
-
-    # def get_commands(
-    #     self, names: Optional[List[str]] = None
-    # ) -> Dict[str, List[Optional[str]]]:
-    #     if self._commands is None:
-    #         self._commands = parse_tex_commands(self.read(), names=names)
-    #     return self._commands
-
-    # def list_zones(self) -> List[str]:
-    #     if self._zones is None:
-    #         self._zones = parse_named_zones(self.read())
-    #     return list(self._zones.keys())
-
-    # def get_zone(self, name: str):
-    #     if self._zones is None:
-    #         self._zones = parse_named_zones(self.read())
-    #     vals = self._zones.get(name)
-    #     if not vals:
-    #         return None
-    #     return vals if len(vals) > 1 else vals[0]
-
-    # def to_dict(self):
-    #     return {
-    #         "source": self.source,
-    #         "metadata": self.metadata,
-    #         "commands": self.get_commands(),
-    #         "zones": self._zones or parse_named_zones(self.read()),
-    #     }
-
-    @classmethod
-    def from_path(
-        cls,
-        path: str,
-        storage: Optional[StorageProtocol] = None,
-        *,
-        strict: bool = False,
-        require_writable: bool = False,
-    ):
-        return cls(
-            source=path,
-            storage=(storage or FileSystemStorage()),
-            strict=strict,
-            require_writable=require_writable,
-        )
-
-    @classmethod
-    def from_string(cls, content: str, *, strict: bool = False):
-        inst = cls(source="<string>", storage=FileSystemStorage(), strict=strict)
-        inst._raw = content
-        return inst
