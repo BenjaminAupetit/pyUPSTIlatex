@@ -73,8 +73,12 @@ def parse_metadonnees_tex(
     Extrait les commandes tex de configuration du fichier UPSTI_document.
     Retourne (dict Python, liste de messages d'erreurs (msg, flag)).
     """
-    cfg = read_json_config()
+    cfg, cfg_errors = read_json_config()
+    if cfg is None:
+        return None, cfg_errors
+
     cfg_meta = cfg.get("metadonnee") or {}
+
     result: Dict[str, Any] = {}
     errors: List[List[str]] = []
 
@@ -242,7 +246,10 @@ def parse_metadonnees_tex(
                 filiere = None
             classe = classe.get("nom", default_classe)
 
-        cfg = read_json_config()
+        cfg, cfg_errors = read_json_config()
+        if cfg_errors:
+            errors.extend(cfg_errors)
+        cfg = cfg or {}
         classe_cfg = cfg.get("classe") or {}
         filiere_cfg = cfg.get("filiere") or {}
         filiere = classe_cfg.get(classe, {}).get("filiere") or default_filiere

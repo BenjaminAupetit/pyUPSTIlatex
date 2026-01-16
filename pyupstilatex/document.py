@@ -4,9 +4,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import yaml
+from slugify import slugify
 
 from .config import load_config
 from .filesystem import DocumentFile
+from .logger import MessageHandler, NoOpMessageHandler
 from .parsers import (
     parse_metadonnees_tex,
     parse_metadonnees_yaml,
@@ -25,6 +27,7 @@ class UPSTILatexDocument:
     storage: StorageProtocol = field(default_factory=FileSystemStorage)
     strict: bool = False
     require_writable: bool = False
+    msg: MessageHandler = field(default_factory=NoOpMessageHandler)
     _metadata: Optional[Dict] = field(default=None, init=False)
     _compilation_parameters: Optional[Dict] = field(default=None, init=False)
     _commands: Optional[Dict] = field(default=None, init=False)
@@ -49,13 +52,26 @@ class UPSTILatexDocument:
         *,
         strict: bool = False,
         require_writable: bool = False,
-    ):
-        return cls(
-            source=path,
-            storage=(storage or FileSystemStorage()),
-            strict=strict,
-            require_writable=require_writable,
-        )
+        msg: Optional[MessageHandler] = None,
+    ) -> tuple["UPSTILatexDocument", List[List[str]]]:
+        errors: List[List[str]] = []
+        try:
+            doc = cls(
+                source=path,
+                storage=(storage or FileSystemStorage()),
+                strict=strict,
+                require_writable=require_writable,
+                msg=(msg or NoOpMessageHandler()),
+            )
+            return doc, errors
+        except Exception as e:
+            errors.append(
+                [
+                    f"Erreur lors de l'initialisation du document '{path}': {e}",
+                    "error",
+                ]
+            )
+            return None, errors
 
     @property
     def file(self) -> DocumentFile:
@@ -111,7 +127,9 @@ class UPSTILatexDocument:
             return self._compilation_parameters
         return self.get_compilation_parameters()[0]
 
-    def compile(self, mode="normal") -> tuple[Optional[Dict], List[List[str]]]:
+    def compile(
+        self, mode: str = "normal", verbose: str = "complete"
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le document LaTeX.
 
         Paramètres
@@ -122,6 +140,13 @@ class UPSTILatexDocument:
                          (utile pour les documents `UPSTI_Document_v2`).
             - "normal": compilation suivie d'un upload si configuré.
             - "quick" : seulement génération des PDF.
+        verbose : str, optional
+            Niveau de verbosité pour les messages renvoyés par la méthode.
+            Valeurs acceptées :
+            - "complete" : affiche tout.
+            - "normal" : affiche tout sauf les messages intermédiaires de succès.
+            - "errors" : affiche juste les erreurs et warning.
+            - "silent" : n'affiche rien.
 
         Retour
         -----
@@ -132,32 +157,159 @@ class UPSTILatexDocument:
             `flag` est l'un de `info`, `warning`, `error`.
         """
 
-        # 1- Renommer le fichier
-        if mode in ["deep", "normal"] and self.compilation_parameters.get(
+        # Initialisation des retours
+        result: Optional[Dict] = None
+        errors: List[List[str]] = []
+
+        # Normaliser le niveau de verbosité
+        if verbose not in ("complete", "normal", "messages", "silent"):
+            verbose = "normal"
+
+        # -------------------------------------------------------------
+        # 1- Vérification de l'intégrité du fichier
+        # -------------------------------------------------------------
+        if verbose in ("complete", "normal"):
+            self.msg.info("Vérification de l'intégrité du fichier")
+
+        file_ok, file_errors = self.file.check_file("read")
+
+        if file_ok is False:
+            return None, file_errors
+
+        if verbose in ("complete",):
+            self.msg.resultat_item("OK !", flag="success", last=True)
+
+        # -------------------------------------------------------------
+        # 2- Vérification de la version
+        # -------------------------------------------------------------
+        if verbose in ("complete", "normal"):
+            self.msg.info("Détection de la version du document")
+
+        version, version_errors = self.get_version()
+
+        if version is None:
+            return None, version_errors
+        elif version == "EPB_Cours":
+            version_errors.append(
+                [
+                    "Les documents EPB ne sont pas pris en charge par pyUPSTIlatex. "
+                    "Il est néanmoins possible de les convertir en utilisant : "
+                    "pyupstilatex migrate.",
+                    "fatal_error",
+                ]
+            )
+            return None, version_errors
+
+        if verbose in ("complete",):
+            self.msg.resultat_item("OK !", flag="success", last=True)
+
+        # -------------------------------------------------------------
+        # 3- Lecture des paramètres de compilation
+        # -------------------------------------------------------------
+        if verbose in ("complete", "normal"):
+            self.msg.info("Lecture des paramètres de compilation")
+
+        comp_params, comp_params_errors = self.get_compilation_parameters()
+
+        if comp_params is None:
+            return None, comp_params_errors
+
+        if not comp_params.get("compiler", True):
+            cfg = load_config()
+            nom_fichier_comp = cfg.compilation.nom_fichier_parametres_compilation
+            comp_params_errors.append(
+                [
+                    "La compilation est désactivée pour ce document "
+                    "(paramètre 'compiler' à false dans le fichier "
+                    f"{nom_fichier_comp}).",
+                    "fatal_error",
+                ]
+            )
+            return None, comp_params_errors
+
+        if verbose in ("complete",):
+            self.msg.resultat_item("OK !", flag="success", last=True)
+
+        # -------------------------------------------------------------
+        # 4- Lecture des métadonnées
+        # -------------------------------------------------------------
+        if verbose in ("complete", "normal"):
+            self.msg.info("Lecture des métadonnées du fichier tex")
+
+        metadata, metadata_messages = self.get_metadata()
+
+        if metadata is None:
+            return None, metadata_messages
+
+        if verbose in ("complete",) and len(metadata_messages) == 0:
+            metadata_messages.append(["OK !", "success"])
+
+        self.msg.affiche_messages(metadata_messages, "resultat_item")
+
+        # -------------------------------------------------------------
+        # 5- Renommer le fichier
+        # -------------------------------------------------------------
+        if mode in ["deep"] and self.compilation_parameters.get(
             "renommer_automatiquement", False
         ):
-            result, errors = self._rename_file()
+            if verbose in ("complete", "normal"):
+                self.msg.info("Vérification du nom de fichier")
+
+            chemin, chemin_messages = self._rename_file()
+
+            if verbose in ("complete",) and len(chemin_messages) == 0:
+                chemin_messages.append(["OK !", "success"])
+
+            self.msg.affiche_messages(chemin_messages, "resultat_item")
+
+        # -------------------------------------------------------------
+        # TO CONTINUE
+        # -------------------------------------------------------------
+        return None, [["Test de la méthode compile", "error"]]
+        # -------------------------------------------------------------
 
         # 2- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
         if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            result, errors = self._generate_latex_template()
+            step_result, step_errors = self._generate_latex_template()
+            if step_errors:
+                errors.extend(step_errors)
+            if step_result is not None:
+                result = {**(result or {}), **step_result}
 
         # 3- Fichier tex v1 pour la rétrocompatibilité (sera ajouté dans les sources)
         if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            result, errors = self._generate_UPSTI_Document_v1_tex_file()
+            step_result, step_errors = self._generate_UPSTI_Document_v1_tex_file()
+            if step_errors:
+                errors.extend(step_errors)
+            if step_result is not None:
+                result = {**(result or {}), **step_result}
 
         # 4- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
-        result, errors = self._compile_tex()
+        step_result, step_errors = self._compile_tex()
+        if step_errors:
+            errors.extend(step_errors)
+        if step_result is not None:
+            result = {**(result or {}), **step_result}
 
         # 5- Copie des fichiers dans le dossier cible
         if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
-            result, errors = self._copy_compiled_files()
+            step_result, step_errors = self._copy_compiled_files()
+            if step_errors:
+                errors.extend(step_errors)
+            if step_result is not None:
+                result = {**(result or {}), **step_result}
 
         # 6- Upload (création du fichier meta, du zip, upload et webhook)
         if mode in ["deep", "normal"] and self.compilation_parameters.get(
             "upload", False
         ):
-            result, errors = self._upload()
+            step_result, step_errors = self._upload()
+            if step_errors:
+                errors.extend(step_errors)
+            if step_result is not None:
+                result = {**(result or {}), **step_result}
+
+        return result, errors
 
     def _rename_file(self) -> tuple[Optional[str], List[List[str]]]:
         """Renomme le fichier source selon les métadonnées (méthode interne).
@@ -167,8 +319,263 @@ class UPSTILatexDocument:
         tuple[Optional[str], List[List[str]]]
             (nouveau_chemin, messages) où messages est une liste de [message, flag].
         """
-        # On écrit le nouveau nom et on vérifie s'il a changé
-        return None, []
+        import re
+
+        def _apply_filters(value: str, filters: List[str]) -> str:
+            """Applique successivement une liste de filtres à une valeur.
+
+            Filtres disponibles:
+                - upper: convertit en majuscules
+                - lower: convertit en minuscules
+                - capitalize: première lettre en majuscule
+                - title: convertit en format titre
+                - slug: convertit en slug (Django slugify)
+
+            Paramètres
+            ----------
+            value : str
+                La valeur à filtrer
+            filters : List[str]
+                Liste des filtres à appliquer dans l'ordre
+
+            Retourne
+            --------
+            str
+                La valeur filtrée
+            """
+            result = str(value)
+            for f in filters:
+                f = f.strip().lower()
+                if f == "upper":
+                    result = result.upper()
+                elif f == "lower":
+                    result = result.lower()
+                elif f == "capitalize":
+                    result = result.capitalize()
+                elif f == "title":
+                    result = result.title()
+                elif f == "slug":
+                    result = slugify(result, separator="_")
+            return result
+
+        # 1. Récupérer le format depuis la config
+        cfg = load_config()
+        format_nom_fichier = cfg.compilation.format_nom_fichier
+
+        if not format_nom_fichier:
+            return None, [
+                [
+                    "Format de nom de fichier non configuré."
+                    "On conserve le nom de fichier initial.",
+                    "warning",
+                ]
+            ]
+
+        # 2. Extraire les zones entre crochets
+        pattern = r'\[([^\]]+)\]'
+        placeholders = re.findall(pattern, format_nom_fichier)
+
+        if not placeholders:
+            return None, [
+                [
+                    "Aucun placeholder trouvé dans le format de nom."
+                    "On conserve le nom de fichier initial.",
+                    "warning",
+                ]
+            ]
+
+        # 3. Récupérer les métadonnées et la config JSON
+        metadata = self.metadata
+        cfg_json, cfg_json_errors = read_json_config()
+        if cfg_json_errors:
+            return None, cfg_json_errors
+        cfg_json = cfg_json or {}
+
+        # 4. Remplacer chaque placeholder par sa valeur dans les métadonnées
+        nouveau_nom = format_nom_fichier
+        for placeholder in placeholders:
+            # Analyser le placeholder : peut contenir des filtres après |
+            # Exemple: [thematique.code|upper,slug] ou [titre|slug]
+            if "|" in placeholder:
+                placeholder_base, filters_str = placeholder.split("|", 1)
+                filters = [f.strip() for f in filters_str.split(",") if f.strip()]
+            else:
+                placeholder_base = placeholder
+                filters = []
+
+            # Analyser le placeholder_base : peut contenir plusieurs parties séparées
+            # par "."
+            parts = placeholder_base.split(".")
+            meta_key = parts[0]  # Première partie = clé de métadonnée
+
+            special_meta_keys = ["titre_ou_titre_activite"]
+            if meta_key not in metadata and meta_key not in special_meta_keys:
+                return None, [
+                    [
+                        f"Métadonnée '{meta_key}' introuvable. "
+                        "On conserve le nom de fichier initial.",
+                        "warning",
+                    ]
+                ]
+
+            # Si le placeholder est simple (une seule clé)
+            if len(parts) == 1:
+                if meta_key == "titre_ou_titre_activite":
+                    # Cas spécial : privilégier `titre_activite` si présent,
+                    # sinon utiliser `titre`.
+                    if "titre_activite" in metadata:
+                        valeur = metadata["titre_activite"].get("valeur", "")
+                    else:
+                        valeur = metadata["titre"].get("valeur", "")
+                else:
+                    valeur = metadata[meta_key].get("valeur", "")
+                if valeur:
+                    # Appliquer les filtres si présents
+                    valeur_finale = _apply_filters(str(valeur), filters)
+                    nouveau_nom = nouveau_nom.replace(f"[{placeholder}]", valeur_finale)
+                else:
+                    return None, [
+                        [
+                            f"Métadonnée '{meta_key}' vide. On conserve le nom de "
+                            "fichier initial.",
+                            "warning",
+                        ]
+                    ]
+            else:
+                # Placeholder composé : [classe.niveau] ou autre
+                # Récupérer la raw_value de la métadonnée
+                raw_value = metadata[meta_key].get("raw_value", "")
+
+                if not raw_value:
+                    return None, [
+                        [
+                            f"Métadonnée '{meta_key}' vide. On conserve le nom de "
+                            "fichier initial.",
+                            "warning",
+                        ]
+                    ]
+
+                # Chercher dans la config JSON la définition de cette métadonnée
+                # puis naviguer dans la structure pour trouver la propriété demandée
+                meta_cfg = cfg_json.get(meta_key, {})
+
+                # raw_value peut être une clé vers un objet dans la config
+                if isinstance(raw_value, str) and raw_value in meta_cfg:
+                    obj = meta_cfg[raw_value]
+
+                    # Parcourir les parts restantes pour accéder à la propriété
+                    valeur = obj
+                    for part in parts[1:]:
+                        if isinstance(valeur, dict) and part in valeur:
+                            valeur = valeur[part]
+                        else:
+                            valeur = None
+                            break
+
+                    if valeur:
+                        # Appliquer les filtres si présents
+                        valeur_finale = _apply_filters(str(valeur), filters)
+                        nouveau_nom = nouveau_nom.replace(
+                            f"[{placeholder}]", valeur_finale
+                        )
+                    else:
+                        return None, [
+                            [
+                                f"Propriété '{'.'.join(parts[1:])}' introuvable pour "
+                                f"'{meta_key}'. On conserve le nom de fichier initial.",
+                                "warning",
+                            ]
+                        ]
+                else:
+                    return None, [
+                        [
+                            f"Impossible de résoudre '{placeholder}'. "
+                            "On conserve le nom de fichier initial.",
+                            "warning",
+                        ]
+                    ]
+
+        # 5. Construire le nouveau chemin complet
+        chemin_actuel = Path(self.source)
+        nouveau_chemin = chemin_actuel.parent / f"{nouveau_nom}{chemin_actuel.suffix}"
+
+        # 6. Vérifier si le nom a changé
+        if nouveau_chemin == chemin_actuel:
+            return None, []
+
+        # 7. Pré-vérifications : existence du fichier source et droit en écriture
+        if not chemin_actuel.exists() or not chemin_actuel.is_file():
+            return None, [[f"Fichier source introuvable: {chemin_actuel}", "warning"]]
+
+        # Utiliser l'objet DocumentFile pour vérifier l'accessibilité en écriture
+        try:
+            if not self.file.is_writable:
+                return None, [
+                    [f"Fichier non accessible en écriture: {chemin_actuel}", "warning"]
+                ]
+        except Exception:
+            # En cas d'erreur d'accès à l'objet file, on tente quand même le renommage
+            pass
+
+        # Ne pas écraser un fichier existant
+        if nouveau_chemin.exists():
+            return None, [
+                [
+                    f"Le fichier cible existe déjà: {nouveau_chemin}. "
+                    "On conserve le nom de fichier initial.",
+                    "warning",
+                ]
+            ]
+
+        # 8. Tenter le renommage physique
+        try:
+            chemin_actuel.rename(nouveau_chemin)
+        except PermissionError as e:
+            return None, [
+                [
+                    f"Permission refusée lors du renommage: {e}. "
+                    "On conserve le nom de fichier initial.",
+                    "warning",
+                ]
+            ]
+        except FileExistsError as e:
+            return None, [
+                [
+                    f"Le fichier cible existe déjà: {e}. On conserve le nom de "
+                    "fichier initial.",
+                    "warning",
+                ]
+            ]
+        except Exception as e:
+            return None, [
+                [
+                    f"Erreur lors du renommage: {e}. On conserve le nom de fichier "
+                    "initial.",
+                    "warning",
+                ]
+            ]
+
+        # 9. Mise à jour de l'objet Document pour pointer vers le nouveau chemin
+        try:
+            self.source = str(nouveau_chemin)
+            self._file = DocumentFile(
+                source=self.source,
+                storage=self.storage,
+                strict=self.strict,
+                require_writable=self.require_writable,
+            )
+        except Exception:
+            # Si la reconstruction de l'objet DocumentFile échoue, signaler une erreur
+            return None, [
+                [
+                    "Renommage effectué mais impossible d'initialiser l'objet fichier.",
+                    "warning",
+                ]
+            ]
+
+        return str(nouveau_chemin), [
+            [f"Nouveau nom : {nouveau_chemin.name}", "success"]
+        ]
 
     def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
@@ -230,6 +637,8 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
         # On crée le zip, le fichier meta, et on upload via FTP/Webhook
+        # Il faut mettre les meta, les parametres de config et la liste
+        # des fichiers uploadés dans le fichier json/yaml meta
         return None, []
 
     def _parse_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
@@ -245,7 +654,9 @@ class UPSTILatexDocument:
             data, errors = parse_metadonnees_yaml(self.content) or {}
             return data, errors
         except Exception as e:
-            return None, [[f"Erreur de lecture des métadonnées YAML: {e}", "error"]]
+            return None, [
+                [f"Erreur de lecture des métadonnées YAML: {e}", "fatal_error"]
+            ]
 
     def _parse_tex_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Extrait les métadonnées depuis les commandes LaTeX v1 (méthode interne).
@@ -257,17 +668,20 @@ class UPSTILatexDocument:
             Ne lève jamais d'exception : erreurs converties en messages.
         """
         try:
-            data, parsing_errors = parse_metadonnees_tex(self.content) or {}
-            version_warning = [
-                [
-                    "Ce document utilise une ancienne version de UPSTI_Document (v1). "
-                    "Mettre à jour UPSTI_Document: pyupstilatex upgrade",
-                    "info",
-                ]
-            ]
-            return data, version_warning + parsing_errors
+            data, parsing_errors = parse_metadonnees_tex(self.content)
+            # version_warning = [
+            #     [
+            #         "Ce document utilise une ancienne version de UPSTI_Document (v1)."
+            #         "Mettre à jour UPSTI_Document: pyupstilatex upgrade",
+            #         "info",
+            #     ]
+            # ]
+            # return data, version_warning + parsing_errors
+            return data, parsing_errors
         except Exception as e:
-            return None, [[f"Erreur de lecture des métadonnées LaTeX: {e}", "error"]]
+            return None, [
+                [f"Erreur de lecture des métadonnées LaTeX: {e}", "fatal_error"]
+            ]
 
     def get_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère et normalise les métadonnées du document.
@@ -289,17 +703,6 @@ class UPSTILatexDocument:
 
         # On reprend la version détectée, et on exécute le parser qui correspond
         version = self._version or self.version
-        if version == "EPB_Document":
-            return (
-                None,
-                [
-                    [
-                        "Les fichiers EPB_Document ne sont pas pris en charge "
-                        "par pyUPSTIlatex.",
-                        "error",
-                    ],
-                ],
-            )
 
         # Associer chaque version à sa fonction de récupération
         sources = {
@@ -309,6 +712,34 @@ class UPSTILatexDocument:
 
         if version in sources:
             metadata, errors = sources[version]()
+
+            if metadata is None:
+                return None, errors
+
+            # Lire le fichier de paramètres de compilation pour override
+            custom_params, custom_errors = self._read_fichier_parametres_compilation()
+            if custom_errors:
+                # Ne garder que les erreurs réelles (pas les "info")
+                errors.extend([e for e in custom_errors if e[1] != "info"])
+
+            # Override des métadonnées si présentes dans le fichier de paramètres
+            if custom_params and "surcharge_metadonnees" in custom_params:
+                override_meta = custom_params["surcharge_metadonnees"]
+                if isinstance(override_meta, dict):
+                    # Si metadata est None, initialiser un dict vide
+                    if metadata is None:
+                        metadata = {}
+
+                    # Merger : ajouter nouvelles clés et remplacer existantes
+                    metadata.update(override_meta)
+                    errors.append(
+                        [
+                            f"Métadonnées overridées depuis le fichier de paramètres "
+                            "(Métadonnée(s) changée(s) : "
+                            f"{', '.join(list(override_meta.keys()))})",
+                            "info",
+                        ]
+                    )
 
             formatted, formatted_errors = self._format_metadata(
                 metadata, source=version
@@ -320,15 +751,15 @@ class UPSTILatexDocument:
         # Version non reconnue
         return (
             None,
-            [["Type de document non pris en charge par pyUPSTIlatex", "error"]],
+            [["Type de document non pris en charge par pyUPSTIlatex", "fatal_error"]],
         )
 
     def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère les paramètres de compilation du document.
 
-        Charge la configuration centralisée depuis @parametres.pyUPSTIlatex.yaml,
-        puis fusionne les paramètres locaux si un fichier de paramètres existe
-        dans le même répertoire que le document. Résultat mis en cache.
+        Charge la configuration centralisée depuis .env, puis fusionne les paramètres
+        locaux si un fichier de paramètres existe dans le même répertoire que le
+        document. Résultat mis en cache.
 
         Retourne
         --------
@@ -355,6 +786,7 @@ class UPSTILatexDocument:
 
         parametres_compilation = {
             "compiler": bool(comp.compiler),
+            "renommer_automatiquement": bool(comp.renommer_automatiquement),
             "versions_a_compiler": list(comp.versions_a_compiler),
             "versions_accessibles_a_compiler": list(
                 comp.versions_accessibles_a_compiler
@@ -366,27 +798,90 @@ class UPSTILatexDocument:
         }
 
         # Vérifier si un fichier de paramètres existe dans le même dossier
-        doc_dir = Path(self.source).parent
-        params_file = doc_dir / comp.nom_fichier_parametres_compilation
-
-        if params_file.exists() and params_file.is_file():
-            try:
-                with open(params_file, "r", encoding="utf-8") as f:
-                    custom_params = yaml.safe_load(f)
-                    if isinstance(custom_params, dict):
-                        # Merger les paramètres custom avec les defaults
-                        parametres_compilation.update(custom_params)
-            except Exception as e:
-                errors.append(
-                    [
-                        f"Erreur lors de la lecture du fichier de paramètres: {e}",
-                        "warning",
-                    ]
-                )
+        custom_params, custom_errors = self._read_fichier_parametres_compilation()
+        if custom_errors:
+            errors.extend(custom_errors)
+        if custom_params:
+            parametres_compilation.update(custom_params)
 
         # Mettre en cache
         self._compilation_parameters = parametres_compilation
         return parametres_compilation, errors
+
+    def get_version(self) -> tuple[Optional[str], List[List[str]]]:
+        """Retourne la version du document (avec cache).
+
+        Détecte automatiquement le format du document parmi :
+        - UPSTI_Document_v2 (métadonnées YAML)
+        - UPSTI_Document_v1 (métadonnées LaTeX)
+        - EPB_Cours (format non supporté)
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (version, messages) où version est le nom du format détecté ou None.
+            Résultat mis en cache dans self._version.
+        """
+        if self._version is not None:
+            # Version déjà détectée (cache)
+            return self._version, []
+
+        version, errors = self._detect_version()
+        self._version = version
+        return version, errors
+
+    def _read_fichier_parametres_compilation(
+        self, fichier_path: Optional[Path] = None
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Lit un fichier de paramètres de compilation YAML (méthode interne).
+
+        Paramètres
+        ----------
+        fichier_path : Optional[Path]
+            Chemin vers le fichier de paramètres. Si None, utilise le fichier
+            par défaut dans le même dossier que le document source.
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (parametres, messages) où parametres est un dictionnaire contenant
+            les paramètres de compilation lus depuis le fichier, ou None si
+            le fichier n'existe pas ou est invalide.
+        """
+        # Déterminer le chemin du fichier
+        if fichier_path is None:
+            cfg = load_config()
+            doc_dir = Path(self.source).parent
+            fichier_path = doc_dir / cfg.compilation.nom_fichier_parametres_compilation
+
+        # Vérifier l'existence du fichier
+        if not fichier_path.exists() or not fichier_path.is_file():
+            return None, [
+                [f"Fichier de paramètres introuvable: {fichier_path}", "info"]
+            ]
+
+        # Lire et parser le fichier YAML
+        try:
+            with open(fichier_path, "r", encoding="utf-8") as f:
+                custom_params = yaml.safe_load(f)
+                if not isinstance(custom_params, dict):
+                    return None, [
+                        [
+                            f"Le fichier {fichier_path.name} ne contient pas un "
+                            "dictionnaire valide",
+                            "fatal_error",
+                        ]
+                    ]
+                return custom_params, []
+        except yaml.YAMLError as e:
+            return None, [[f"Erreur YAML dans {fichier_path.name}: {e}", "fatal_error"]]
+        except Exception as e:
+            return None, [
+                [
+                    f"Erreur lors de la lecture du fichier de paramètres: {e}",
+                    "error",
+                ]
+            ]
 
     def _detect_version(self) -> tuple[Optional[str], List[List[str]]]:
         """Détecte la version du document en analysant le contenu (méthode interne).
@@ -397,7 +892,7 @@ class UPSTILatexDocument:
             (version_string, messages) où version_string peut être :
             - "UPSTI_Document_v2" (front-matter YAML)
             - "UPSTI_Document_v1" (package LaTeX)
-            - "EPB_Document" (ancien format)
+            - "EPB_Cours" (ancien format)
             - None (version non reconnue)
         """
         try:
@@ -416,35 +911,13 @@ class UPSTILatexDocument:
             packages = parse_package_imports(content)
             if "UPSTI_Document" in packages:
                 return "UPSTI_Document_v1", []
-            if "EPB_Document" in packages:
-                return "EPB_Document", []
+            if "EPB_Cours" in packages:
+                return "EPB_Cours", []
 
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
-        return None, [["Version non reconnue", "fatal_error"]]
-
-    def get_version(self) -> tuple[Optional[str], List[List[str]]]:
-        """Retourne la version du document (avec cache).
-
-        Détecte automatiquement le format du document parmi :
-        - UPSTI_Document_v2 (métadonnées YAML)
-        - UPSTI_Document_v1 (métadonnées LaTeX)
-        - EPB_Document (format non supporté)
-
-        Retourne
-        --------
-        tuple[Optional[str], List[List[str]]]
-            (version, messages) où version est le nom du format détecté ou None.
-            Résultat mis en cache dans self._version.
-        """
-        if self._version is not None:
-            # Version déjà détectée (cache)
-            return self._version, []
-
-        version, errors = self._detect_version()
-        self._version = version
-        return version, errors
+        return None, [["Version non reconnue ou non prise en charge.", "error"]]
 
     def _format_metadata(
         self, data: Dict, *, source: str
@@ -458,7 +931,10 @@ class UPSTILatexDocument:
 
         meta_ok: Dict[str, Dict] = {}
         errors: List[Tuple[str, str]] = []
-        cfg = read_json_config()
+        cfg, cfg_errors = read_json_config()
+        if cfg_errors:
+            return None, cfg_errors
+
         cfg_meta = cfg.get("metadonnee") or {}
 
         # On prépare toutes les valeurs par défaut globales (via config .env)

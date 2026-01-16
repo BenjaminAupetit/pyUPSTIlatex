@@ -350,10 +350,16 @@ def scan_for_documents(
             if should_exclude:
                 continue
 
-            try:
-                doc = UPSTILatexDocument.from_path(str(file_path))
-            except Exception as e:
-                errors.append(f"Erreur lors de la lecture de {file_path}: {e}")
+            # from_path now returns (doc, errors). Handle errors and missing doc.
+            doc, doc_errors = UPSTILatexDocument.from_path(str(file_path))
+            if doc_errors:
+                for derr in doc_errors:
+                    # derr is expected to be a [message, flag] pair
+                    msg_text = f"Erreur lors de la lecture de {file_path}: {derr[0]}"
+                    errors.append(msg_text)
+                continue
+            if doc is None:
+                errors.append(f"Impossible d'initialiser le document: {file_path}")
                 continue
 
             if not doc.is_readable:
@@ -370,7 +376,7 @@ def scan_for_documents(
 
             version, local_errors = doc.get_version()
 
-            if version in {"UPSTI_Document_v1", "UPSTI_Document_v2", "EPB_Document"}:
+            if version in {"UPSTI_Document_v1", "UPSTI_Document_v2", "EPB_Cours"}:
                 # Récupérer le paramètre de compilation
                 a_compiler = False
                 try:

@@ -2,9 +2,8 @@ import json
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from .exceptions import DocumentParseError
 
-
+# TODEL ???
 def check_path_readable(path: str) -> tuple[bool, Optional[str], Optional[str]]:
     """Vérifie qu'un chemin existe, est un fichier et est lisible (texte).
 
@@ -37,6 +36,7 @@ def check_path_readable(path: str) -> tuple[bool, Optional[str], Optional[str]]:
     return True, None, None
 
 
+# TODEL ???
 def check_path_writable(path: str) -> tuple[bool, Optional[str], Optional[str]]:
     """Vérifie qu'un chemin de fichier existant est ouvrable en écriture.
 
@@ -59,6 +59,7 @@ def check_path_writable(path: str) -> tuple[bool, Optional[str], Optional[str]]:
     return True, None, None
 
 
+# TODEL ???
 def check_types(obj: Any, expected_types: Union[str, List[str]]) -> bool:
     """
     Vérifie si `obj` est du type indiqué par `expected_types` (str ou liste de str).
@@ -90,10 +91,14 @@ def check_types(obj: Any, expected_types: Union[str, List[str]]) -> bool:
     return False
 
 
-def read_json_config(path: Optional[Path | str] = None) -> dict:
-    """Lit le fichier JSON de configuration et le retourne sous forme de dictionnaire.
+def read_json_config(
+    path: Optional[Path | str] = None,
+) -> tuple[Optional[dict], List[List[str]]]:
+    """Lit le fichier JSON de configuration.
 
-    Si 'path' est None, résout le fichier JSON embarqué `pyUPSTIlatex.json` situé à la racine du package (un niveau au-dessus de ce module).
+    Retourne un tuple `(data, messages)` où `data` est le dictionnaire lu
+    (ou `None` en cas d'erreur) et `messages` est une liste de paires
+    `[message, flag]` décrivant les erreurs/avertissements rencontrés.
     """
     try:
         if path is None:
@@ -101,8 +106,10 @@ def read_json_config(path: Optional[Path | str] = None) -> dict:
         else:
             json_path = Path(path)
         with json_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        raise DocumentParseError(
-            f"Impossible de lire le fichier JSON de config {json_path}: {e}"
+            return json.load(f), []
+    except Exception:
+        msg = (
+            "Impossible de lire le fichier pyUPSTIlatex.json. "
+            "Vérifier s'il est bien présent à la racine du projet."
         )
+        return None, [[msg, "error"]]

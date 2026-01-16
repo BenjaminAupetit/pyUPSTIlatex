@@ -37,31 +37,22 @@ def main(ctx, log_file, no_verbose):
 @main.command()
 @click.argument("path", type=click.Path())
 @click.pass_context
-def version(ctx, path):
+def version(ctx, path: str):
     """Affiche la version du document UPSTI/EPB."""
-
     msg: MessageHandler = ctx.obj["msg"]
-    msg.titre1(f"VERSION : {Path(path).name}")
+    chemin = Path(path)
 
-    # Instanciation du document
-    doc = UPSTILatexDocument.from_path(path)
+    msg.titre1(f"VERSION : {chemin.name}")
 
-    # Vérification du fichier via UPSTILatexDocument.check_file (sans émission auto)
-    ok, file_errors = doc.file.check_file("read")
-    if not ok:
-        # Afficher les erreurs au format 'resultat' comme auparavant
-        for err in file_errors:
-            msg.info(f"{err[0]}", flag=err[1])
-        msg.separateur1()
-        return ctx.exit(1)
+    # Vérification centralisée du chemin / document
+    doc = _check_path(ctx, chemin)
 
     # Détection de version
-    version, errors = doc.get_version()
-    for error in errors:
-        msg.info(f"{error[0]}", flag=error[1])
-    if version is not None:
-        msg.info(f"Version détectée : {COLOR_GREEN}{version}{COLOR_RESET}")
-    msg.separateur1()
+    version, messages = doc.get_version()
+    if version:
+        messages.append(f"Version détectée : {COLOR_GREEN}{version}{COLOR_RESET}")
+
+    return _exit_with_messages(ctx, msg, messages)
 
 
 @main.command()
@@ -71,25 +62,19 @@ def infos(ctx, path):
     """Affiche les informations du document UPSTI"""
 
     msg: MessageHandler = ctx.obj["msg"]
-    msg.titre1(f"INFOS : {Path(path).name}")
+    chemin = Path(path)
 
-    # Instanciation du document
-    doc = UPSTILatexDocument.from_path(path)
+    msg.titre1(f"INFOS : {chemin.name}")
 
-    # Vérification du fichier (lecture)
-    fichier_valide, errors = doc.file.check_file("read")
+    # Vérification centralisée du chemin / document
+    doc = _check_path(ctx, chemin)
 
     # Récupération des métadonnées selon la version
-    if fichier_valide:
-        metadata, meta_errors = doc.get_metadata()
-        errors += meta_errors
+    metadata, messages = doc.get_metadata()
 
     # On détecte si on a rencontré une erreur fatale
-    for error in errors:
-        if error[1] == "fatal_error":
-            msg.info(f"{error[0]}", flag=error[1])
-            msg.separateur1()
-            return ctx.exit(1)
+    if metadata is None:
+        return _exit_with_messages(ctx, msg, messages)
 
     if metadata:
         # Préparer la liste des éléments affichables et calculer la largeur max
@@ -143,10 +128,9 @@ def infos(ctx, path):
             msg.info(f"{padding}{label} {separateur_colored} {valeur}")
 
     # Erreurs rencontrées
-    if errors:
+    if messages:
         msg.separateur2()
-        for error in errors:
-            msg.info(f"{error[0]}", flag=error[1])
+        msg.affiche_messages(messages, "info")
 
     # Légende des symboles
     msg.separateur1()
@@ -159,7 +143,7 @@ def infos(ctx, path):
         f"{COLOR_ORANGE}=>{COLOR_RESET} WARNING, "
         f"{COLOR_RED}=>{COLOR_RESET} ERROR, {COLOR_LIGHT_BLUE}=>{COLOR_RESET} INFO"
     )
-    msg.separateur1()
+    return _exit_with_separator(ctx, msg)
 
 
 @main.command(name="liste-fichiers")
@@ -221,8 +205,7 @@ def liste_fichiers(ctx, path, exclude, show_full_path):
     if not documents and errors:
         for e in errors:
             msg.info(e, flag="warning")
-        msg.separateur1()
-        ctx.exit(1)
+        return _exit_with_separator(ctx, msg)
 
     # Afficher les documents trouvés
     if not documents:
@@ -260,13 +243,22 @@ def liste_fichiers(ctx, path, exclude, show_full_path):
         for e in errors:
             msg.info(e, flag="warning")
 
-    msg.separateur1()
+    return _exit_with_separator(ctx, msg)
 
 
 @main.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument("path", type=click.Path())
+@click.option(
+    "--mode",
+    "-m",
+    default="normal",
+    help=(
+        "Mode de compilation: 'normal' (défaut), 'quick' ou 'deep'. Toute autre valeur "
+        "sera traitée comme 'normal'."
+    ),
+)
 @click.pass_context
-def compile(ctx, path):
+def compile(ctx, path, mode):
     """Compile un fichier .tex ou tous les fichiers d'un dossier."""
 
     from pathlib import Path
@@ -274,16 +266,42 @@ def compile(ctx, path):
     chemin = Path(path)
     msg: MessageHandler = ctx.obj["msg"]
 
-    if chemin.is_file():
-        # Compilation d'un seul fichier
-        msg.titre1(f"COMPILATION de {chemin}")
+    # Normaliser le paramètre 'mode'
+    try:
+        mode = str(mode).lower()
+    except Exception:
+        mode = "normal"
+    if mode not in ("deep", "quick"):
+        mode = "normal"
 
-        # TODO: Appeler la fonction de compilation
+    # Titre
+    msg.titre1(f"COMPILATION de {chemin}")
+
+    # Gérer le cas où le chemin fourni est invalide nous-mêmes
+    if not chemin.exists():
+        msg.info(f"Fichier ou dossier introuvable : {chemin}", flag="error")
+        return _exit_with_separator(ctx, msg)
+
+    if chemin.is_file():
+        # Vérification et instanciation centralisées
+        doc = _check_path(ctx, chemin)
+
+        # On lance la compilation
+        result, messages = doc.compile(mode=mode, verbose="complete")
+
+        # Affichage des différents messages
+        msg.affiche_messages(messages, "resultat_item")
+
+        # Message de conclusion
+        msg.separateur2()
+        if result:
+            msg.info("Compilation réussie", flag="success")
+        else:
+            msg.info("Échec de la compilation", flag="error")
+        msg.separateur1()
+        return ctx.exit(0)
 
     elif chemin.is_dir():
-        # Compilation de tous les fichiers .tex du dossier
-        msg.titre1(f"COMPILATION des fichiers dans {chemin}")
-
         # Liste des fichiers contenus dans le dossier passé en paramètres
         msg.info("Recherche de tous les fichiers tex UPSTI_document à compiler")
         documents, errors = scan_for_documents([str(chemin)], None)
@@ -292,7 +310,10 @@ def compile(ctx, path):
         documents_a_compiler: list[dict] = []
         for d in documents:
             try:
-                doc = UPSTILatexDocument.from_path(d["path"])
+                doc, doc_errors = UPSTILatexDocument.from_path(d["path"], msg=msg)
+                if doc_errors:
+                    for error in doc_errors:
+                        msg.info(f"{error[0]}", flag=error[1])
                 params, _ = doc.get_compilation_parameters()
                 d["parametres_compilation"] = params
                 if params and params.get("compiler"):
@@ -307,8 +328,7 @@ def compile(ctx, path):
         nb_documents = len(documents_a_compiler)
         if nb_documents == 0:
             msg.resultat("Aucun document compatible trouvé.", flag="error")
-            msg.separateur1()
-            return ctx.exit(1)
+            return _exit_with_separator(ctx, msg)
 
         # Affichage de la liste des documents trouvés
         max_name = max(len(d["filename"]) for d in documents_a_compiler)
@@ -336,8 +356,7 @@ def compile(ctx, path):
         if doit_compiler not in ["O", "o"]:
             msg.separateur1()
             msg.info("Opération annulée.", flag="error")
-            msg.separateur1()
-            return ctx.exit(1)
+            return _exit_with_separator(ctx, msg)
         else:
             msg.titre2("Démarrage de la compilation...")
 
@@ -345,6 +364,50 @@ def compile(ctx, path):
     # à tous les fichiers...
 
     msg.separateur1()
+
+
+def _exit_with_separator(ctx, msg):
+    msg.separateur1()
+    ctx.exit(1)
+
+
+def _exit_with_messages(ctx, msg, messages):
+    msg.affiche_messages(messages, "info")
+    return _exit_with_separator(ctx, msg)
+
+
+def _check_path(ctx, chemin: Path):
+    """Vérifie le chemin, instancie le document et contrôle la lisibilité.
+
+    En cas d'erreur, affiche les messages appropriés et sort via les helpers.
+    Retourne l'objet `UPSTILatexDocument` si tout est OK.
+    """
+    msg: MessageHandler = ctx.obj["msg"]
+
+    # Vérifications du chemin
+    if not chemin.exists() or not chemin.is_file():
+        erreur = (
+            "Chemin incorrect"
+            if not chemin.exists()
+            else "Le chemin n'indique pas un fichier"
+        )
+        msg.info(f"{erreur} : {chemin}", flag="fatal_error")
+        return _exit_with_separator(ctx, msg)
+
+    # Instanciation du document
+    doc, errors = UPSTILatexDocument.from_path(str(chemin), msg=msg)
+    if not isinstance(doc, UPSTILatexDocument):
+        errors.append(
+            ["Impossible d'initialiser le document (objet invalide).", "fatal_error"]
+        )
+        return _exit_with_messages(ctx, msg, errors)
+
+    # Vérification du fichier
+    file_ok, file_errors = doc.file.check_file("read")
+    if not file_ok:
+        return _exit_with_messages(ctx, msg, file_errors)
+
+    return doc
 
 
 if __name__ == "__main__":

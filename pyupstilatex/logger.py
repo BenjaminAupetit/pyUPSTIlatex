@@ -1,99 +1,123 @@
 import logging
-from typing import Callable, Dict, Optional, Tuple
+from dataclasses import dataclass
+from typing import Callable, Dict, Optional
 
 # Séparateurs
-DEFAULT_SEP1 = 88 * "═"
-DEFAULT_SEP2 = 88 * "─"
-DEFAULT_SEP3 = 88 * "-"
+SEPARATORS = {
+    "separateur1": 88 * "═",
+    "separateur2": 88 * "─",
+    "separateur3": 88 * "-",
+}
 
 # Codes couleurs ANSI
 COLOR_GREEN = "\033[92m"
 COLOR_ORANGE = "\033[38;5;214m"
-COLOR_LIGHT_ORANGE = "\033[38;2;255;220;150m"
 COLOR_RED = "\033[91m"
-COLOR_DARK_GRAY = "\033[90m"
 COLOR_LIGHT_BLUE = "\033[94m"
 COLOR_LIGHT_GREEN = "\033[38;2;200;255;200m"
+COLOR_DARK_GRAY = "\033[90m"
 COLOR_RESET = "\033[0m"
 
-Formatter = Callable[[str], Tuple[str, int]]
+
+@dataclass
+class FormattedMessage:
+    text: str
+    level: int
 
 
-def _annoted_text(text: str, flag: str) -> str:
+Formatter = Callable[[str, Optional[str]], FormattedMessage]
+
+
+# -----------------------------
+# Utilitaires
+# -----------------------------
+def _annoted_text(
+    text: str, flag: Optional[str], version: Optional[str] = "full"
+) -> str:
+    if version == "compact":
+        text_info = "i"
+        text_success = "✓"
+        text_warning = "!"
+        text_error = "✗"
+    else:
+        text_info = "INFO"
+        text_success = "SUCCÈS"
+        text_warning = "WARNING"
+        text_error = "ERREUR"
+
     if flag == "success":
-        return f"{COLOR_GREEN}✓{COLOR_RESET} : {text}"
+        return f"{COLOR_GREEN}{text_success}{COLOR_RESET} : {text}"
     elif flag == "warning":
-        return f"{COLOR_ORANGE}WARNING{COLOR_RESET} : {text}"
-    elif flag in ["error", "fatal_error"]:
-        return f"{COLOR_RED}ERREUR{COLOR_RESET} : {text}"
+        return f"{COLOR_ORANGE}{text_warning}{COLOR_RESET} : {text}"
+    elif flag in ("error", "fatal_error"):
+        return f"{COLOR_RED}{text_error}{COLOR_RESET} : {text}"
     elif flag == "info":
-        return f"{COLOR_LIGHT_BLUE}INFO{COLOR_RESET} : {text}"
+        return f"{COLOR_LIGHT_BLUE}{text_info}{COLOR_RESET} : {text}"
     return text
 
 
-def _fmt_t1(t: str):
-    return (f"{DEFAULT_SEP1}\n{t}\n{DEFAULT_SEP1}", logging.INFO)
+def _level_from_flag(flag: Optional[str]) -> int:
+    if flag == "warning":
+        return logging.WARNING
+    elif flag in ("error", "fatal_error"):
+        return logging.ERROR
+    return logging.INFO
 
 
-def _fmt_t2(t: str):
-    return (f"{DEFAULT_SEP2}\n{t}\n{DEFAULT_SEP2}", logging.INFO)
+def fmt_generic(
+    t: str,
+    flag: Optional[str] = None,
+    prefix: str = "",
+    suffix: str = "",
+    version: str = "full",
+) -> FormattedMessage:
+    return FormattedMessage(
+        f"{prefix}{_annoted_text(t, flag, version)}{suffix}", _level_from_flag(flag)
+    )
 
 
-def _fmt_t3(t: str):
-    return (f"{t}\n{DEFAULT_SEP3}", logging.INFO)
+def fmt_separator(key: str, flag: Optional[str] = None) -> FormattedMessage:
+    return FormattedMessage(SEPARATORS[key], _level_from_flag(flag))
 
 
-def _fmt_t4(t: str):
-    return (t, logging.INFO)
-
-
-def _fmt_text(t: str):
-    return (f"{t}", logging.INFO)
-
-
-def _fmt_info(t: str, flag: str = None):
-    return (f"  {_annoted_text(t, flag)}", logging.INFO)
-
-
-def _fmt_resultat(t: str, flag: str = None):
-    return (f"    └─> {_annoted_text(t, flag)}", logging.INFO)
-
-
-def _fmt_resultat_item(t: str):
-    return (f"    ├─ {t}", logging.INFO)
-
-
-def _fmt_resultat_conclusion(t: str):
-    return (f"    │\n    └─> {t}", logging.INFO)
-
-
-def _fmt_conclusion(t: str):
-    return (f"│\n└─> {t}", logging.INFO)
-
-
-def _fmt_empty(t: str):
-    return ("", logging.INFO)
-
-
+# -----------------------------
+# Formatters centralisés
+# -----------------------------
 DEFAULT_FORMATTERS: Dict[str, Formatter] = {
-    "titre1": _fmt_t1,
-    "titre2": _fmt_t2,
-    "titre3": _fmt_t3,
-    "titre4": _fmt_t4,
-    "text": _fmt_text,  # Texte normal
-    "info": _fmt_info,  # Texte normal avec retrait
-    "action": _fmt_info,
-    "resultat": _fmt_resultat,
-    "resultat_item": _fmt_resultat_item,
-    "resultat_conclusion": _fmt_resultat_conclusion,
-    "conclusion": _fmt_conclusion,
-    "saut": _fmt_empty,
-    "separateur1": lambda t: (DEFAULT_SEP1, logging.INFO),
-    "separateur2": lambda t: (DEFAULT_SEP2, logging.INFO),
-    "separateur3": lambda t: (DEFAULT_SEP3, logging.INFO),
+    "titre1": lambda t, f=None: fmt_generic(
+        t,
+        f,
+        prefix=f"{SEPARATORS['separateur1']}\n",
+        suffix=f"\n{SEPARATORS['separateur1']}",
+    ),
+    "titre2": lambda t, f=None: fmt_generic(
+        t,
+        f,
+        prefix=f"{SEPARATORS['separateur2']}\n",
+        suffix=f"\n{SEPARATORS['separateur2']}",
+    ),
+    "titre3": lambda t, f=None: fmt_generic(
+        t, f, suffix=f"\n{SEPARATORS['separateur3']}"
+    ),
+    "titre4": lambda t, f=None: fmt_generic(t, f),
+    "text": lambda t, f=None: fmt_generic(t, f),
+    "info": lambda t, f=None: fmt_generic(t, f, prefix="  "),
+    "resultat": lambda t, f=None: fmt_generic(t, f, prefix="    └─> "),
+    "resultat_item": lambda t, f=None: fmt_generic(t, f),  # géré dans format_message
+    "resultat_conclusion": lambda t, f=None: fmt_generic(
+        t, f, prefix="    │\n    └─> "
+    ),
+    "conclusion": lambda t, f=None: fmt_generic(t, f, prefix="\n└─> "),
+    "saut": lambda t, f=None: FormattedMessage("", _level_from_flag(f)),
+    "separateur1": lambda t, f=None: fmt_separator("separateur1", f),
+    "separateur2": lambda t, f=None: fmt_separator("separateur2", f),
+    "separateur3": lambda t, f=None: fmt_separator("separateur3", f),
 }
 
 
+# -----------------------------
+# Classe principale
+# -----------------------------
 class MessageHandler:
     def __init__(
         self,
@@ -110,7 +134,6 @@ class MessageHandler:
         self._configure_logger(log_file, console_level, file_level)
 
     def _configure_logger(self, log_file, console_level, file_level):
-        # avoid removing handlers if other parts of app use same logger:
         if not self._logger.handlers:
             self._logger.setLevel(logging.DEBUG)
             console = logging.StreamHandler()
@@ -127,35 +150,35 @@ class MessageHandler:
                 )
                 self._logger.addHandler(fh)
 
-    def format_message(self, typ: str, texte: str, flag: str = None) -> Tuple[str, int]:
-        fmt = self._formatters.get(typ, None)
-        # Passer flag pour les types qui supportent l'annotation
-        if typ in ("info", "action"):
-            return _fmt_info(texte or "", flag)
-        if typ == "resultat":
-            return _fmt_resultat(texte or "", flag)
-        if fmt:
-            return fmt(texte or "")
-        return (texte or "", logging.INFO)
+    def format_message(
+        self, typ: str, texte: str, flag: str = None, last: bool = False
+    ) -> FormattedMessage:
+        fmt = self._formatters.get(typ)
+        if typ == "resultat_item":
+            char = "└" if last else "├"
+            return fmt_generic(texte, flag, prefix=f"    {char}─ ", version="compact")
+        return (
+            fmt(texte or "", flag)
+            if fmt
+            else FormattedMessage(texte or "", _level_from_flag(flag))
+        )
 
     def emit(self, message: dict):
-        if not message:
-            return
-        if "verbose" in message and not message["verbose"]:
+        if not message or (message.get("verbose") is False):
             return
         typ = message.get("type", "info")
         if not self.verbose and typ in ("info", "resultat", "resultat_item", "action"):
             return
         texte = message.get("texte", "")
-        flag = message.get("flag", None)
-        out, level = self.format_message(typ, texte, flag)
-        # guard: avoid emitting empty lines when suppressed
-        if out == "" and level == logging.INFO:
+        flag = message.get("flag")
+        last = message.get("last", False)
+        formatted = self.format_message(typ, texte, flag, last)
+        if formatted.text == "" and formatted.level == logging.INFO:
             self._logger.info("")
         else:
-            self._logger.log(level, out)
+            self._logger.log(formatted.level, formatted.text)
 
-    # minimal helpers: thin wrappers calling emit
+    # Helpers
     def msg(
         self, typ: str, texte: str, verbose: Optional[bool] = None, flag: str = None
     ):
@@ -166,7 +189,7 @@ class MessageHandler:
             m["flag"] = flag
         self.emit(m)
 
-    # convenience methods map to msg
+    # Méthodes pratiques
     def titre1(self, texte, verbose=None):
         self.msg("titre1", texte, verbose)
 
@@ -179,26 +202,30 @@ class MessageHandler:
     def titre4(self, texte, verbose=None):
         self.msg("titre4", texte, verbose)
 
-    def text(self, texte, verbose=None):
-        self.msg("text", texte, verbose)
+    def text(self, texte, verbose=None, flag=None):
+        self.msg("text", texte, verbose, flag)
 
     def info(self, texte, verbose=None, flag=None):
         self.msg("info", texte, verbose, flag)
 
-    def action(self, texte, verbose=None):
-        self.msg("action", texte, verbose)
-
     def resultat(self, texte, verbose=None, flag=None):
         self.msg("resultat", texte, verbose, flag)
 
-    def resultat_item(self, texte, verbose=None, flag=None):
-        self.msg("resultat_item", texte, verbose, flag)
+    def resultat_item(self, texte, verbose=None, flag=None, last: bool = False):
+        m = {"type": "resultat_item", "texte": texte}
+        if verbose is not None:
+            m["verbose"] = verbose
+        if flag is not None:
+            m["flag"] = flag
+        if last:
+            m["last"] = True
+        self.emit(m)
 
-    def resultat_conclusion(self, texte, verbose=None):
-        self.msg("resultat_conclusion", texte, verbose)
+    def resultat_conclusion(self, texte, verbose=None, flag=None):
+        self.msg("resultat_conclusion", texte, verbose, flag)
 
-    def conclusion(self, texte, verbose=None):
-        self.msg("conclusion", texte, verbose)
+    def conclusion(self, texte, verbose=None, flag=None):
+        self.msg("conclusion", texte, verbose, flag)
 
     def saut(self):
         self.msg("saut", "")
@@ -211,3 +238,82 @@ class MessageHandler:
 
     def separateur3(self):
         self.msg("separateur3", "")
+
+    def affiche_messages(self, messages: list[object], type: str = "info"):
+        if not messages:
+            return
+        writer = {
+            "info": self.info,
+            "resultat": self.resultat,
+            "resultat_item": self.resultat_item,
+            "text": self.text,
+        }.get(type, self.info)
+        for idx, entry in enumerate(messages):
+            texte, flag = (
+                (entry[0], entry[1])
+                if isinstance(entry, (list, tuple))
+                else (str(entry), None)
+            )
+            is_last = idx == len(messages) - 1
+            # Use the provided `type` parameter to decide passing `last`.
+            if type == "resultat_item":
+                writer(texte, flag=flag, last=is_last)
+            else:
+                writer(texte, flag=flag)
+
+
+class NoOpMessageHandler:
+    """Handler silencieux qui implémente l'interface MessageHandler sans rien faire."""
+
+    def emit(self, message: dict):
+        pass
+
+    def msg(
+        self, typ: str, texte: str, verbose: Optional[bool] = None, flag: str = None
+    ):
+        pass
+
+    def titre1(self, texte, verbose=None):
+        pass
+
+    def titre2(self, texte, verbose=None):
+        pass
+
+    def titre3(self, texte, verbose=None):
+        pass
+
+    def titre4(self, texte, verbose=None):
+        pass
+
+    def text(self, texte, verbose=None, flag=None):
+        pass
+
+    def info(self, texte, verbose=None, flag=None):
+        pass
+
+    def resultat(self, texte, verbose=None, flag=None):
+        pass
+
+    def resultat_item(self, texte, verbose=None, flag=None, last: bool = False):
+        pass
+
+    def resultat_conclusion(self, texte, verbose=None, flag=None):
+        pass
+
+    def conclusion(self, texte, verbose=None, flag=None):
+        pass
+
+    def saut(self):
+        pass
+
+    def separateur1(self):
+        pass
+
+    def separateur2(self):
+        pass
+
+    def separateur3(self):
+        pass
+
+    def affiche_messages(self, messages: list[object], type: str = "info"):
+        pass

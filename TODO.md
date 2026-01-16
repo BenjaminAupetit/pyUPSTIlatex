@@ -9,9 +9,10 @@
   - Compilation (s) des fichiers tex
   - Créer le fichier sources.zip
   - Copier dans le fichier cible (si param)
-  - Générer le fichier .meta.json (ou .meta.yaml)
+  - Générer le fichier .meta.json (ou .meta.yaml) (mettre une variable : changement_parametres_obligatoires=bool pour voir si on detecte les doublonsou pas)
   - Uploader sur le FTP
   - Envoyer une requete d'actualisation sur le site (rajouter url dans le .env)
+- Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
 
 ## Roadmap
 
