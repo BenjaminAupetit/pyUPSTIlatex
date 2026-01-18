@@ -299,27 +299,58 @@ class DocumentFile:
 def scan_for_documents(
     root_paths: Optional[Union[str, List[str]]] = None,
     exclude_patterns: Optional[List[str]] = None,
-) -> Tuple[List[Dict[str, str]], List[str]]:
-    """
-    Scanne un ouplusieurs dossiers à la recherche de fichiers tex compatibles.
+    filter_mode: str = "compatible",
+    compilable_filter: str = "all",
+) -> Tuple[Optional[List[Dict[str, str]]], List[List[str]]]:
+    """Scanne un ou plusieurs dossiers à la recherche de fichiers LaTeX.
 
-    Args:
-        root_paths: Le(s) chemin(s) du/des dossier(s) à scanner.
-                    Si None, utilise TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER du .env
-        exclude_patterns: Motifs d'exclusion (glob).
-                         Si None, utilise TRAITEMENT_PAR_LOT_FICHIERS_A_EXCLURE du .env
+    Analyse tous les fichiers .tex et .ltx trouvés et les classe selon leur
+    compatibilité avec pyUPSTIlatex (UPSTI_Document_v1 ou UPSTI_Document_v2).
+    Retourne la liste filtrée selon le mode demandé.
 
-    Returns:
-        Un tuple (found_documents, errors) où :
-            - found_documents: liste de dicts avec :
-                'name', 'filename', 'path', 'version', 'display_path'
-            - errors: liste de messages d'erreurs
+    Paramètres
+    ----------
+    root_paths : Optional[Union[str, List[str]]], optional
+        Le(s) chemin(s) du/des dossier(s) à scanner. Si None, utilise
+        TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER depuis le fichier .env.
+        Défaut : None.
+    exclude_patterns : Optional[List[str]], optional
+        Motifs d'exclusion (glob) pour ignorer certains fichiers.
+        Si None, utilise TRAITEMENT_PAR_LOT_FICHIERS_A_EXCLURE depuis .env.
+        Défaut : None.
+    filter_mode : str, optional
+        Mode de filtrage des résultats :
+        - "compatible" : retourne uniquement les fichiers UPSTI compatibles
+        - "incompatible" : retourne uniquement les fichiers non compatibles
+        - "all" : retourne tous les fichiers analysés
+        Défaut : "compatible".
+
+    Retourne
+    --------
+    tuple[Optional[List[Dict[str, str]]], List[List[str]]]
+        Tuple (documents, messages) où :
+        - documents : None si erreur fatale, sinon liste de dicts avec :
+            - 'name' : nom du fichier sans extension
+            - 'filename' : nom complet du fichier
+            - 'path' : chemin absolu du fichier
+            - 'version' : version détectée (ou "unknown" si incompatible)
+            - 'compatible' : bool indiquant la compatibilité
+            - 'a_compiler' : bool (seulement si compatible)
+        - messages : liste de [message, flag] générés durant le scan
     """
     # Import ici pour éviter l'import circulaire
     from .document import UPSTILatexDocument
 
-    errors: List[str] = []
+    messages: List[List[str]] = []
     cfg = load_config()
+
+    # Normalisation du mode de filtrage
+    if filter_mode not in ("compatible", "incompatible", "all"):
+        filter_mode = "compatible"
+
+    # Normalisation du filtre compilable/non compilable
+    if compilable_filter not in ("compilable", "non-compilable", "all"):
+        compilable_filter = "all"
 
     # Utiliser les valeurs du .env si non spécifiées
     if root_paths is None:
@@ -329,31 +360,30 @@ def scan_for_documents(
     else:
         roots = list(root_paths)
 
+    if not roots:
+        return None, [
+            [
+                "Aucun dossier spécifié et aucune variable d'environnement définie.",
+                "fatal_error",
+            ]
+        ]
+
     if exclude_patterns is None:
         exclude_patterns = list(cfg.traitement_par_lot.fichiers_a_exclure)
-
-    if not roots:
-        errors.append(
-            "Aucun dossier spécifié et aucune variable d'environnement définie."
-        )
-        return [], errors
-
     exclude_patterns = exclude_patterns or []
 
-    found_documents: List[Dict[str, str]] = []
+    all_documents: List[Dict[str, str]] = []
 
     for root in roots:
         if not os.path.isdir(root):
-            message = f"Le dossier spécifié n'existe pas : {root}"
-            errors.append(message)
-            # skip this root and continue with others
+            messages.append([f"Le dossier spécifié n'existe pas : {root}", "warning"])
             continue
 
         p = Path(root)
         tex_files = list(p.rglob("*.tex")) + list(p.rglob("*.ltx"))
 
         for file_path in tex_files:
-            # Apply exclude patterns on filename and relative path
+            # Appliquer les motifs d'exclusion
             rel = None
             try:
                 rel = file_path.relative_to(p)
@@ -370,56 +400,118 @@ def scan_for_documents(
             if should_exclude:
                 continue
 
-            # from_path now returns (doc, errors). Handle errors and missing doc.
+            # Initialiser le document
             doc, doc_errors = UPSTILatexDocument.from_path(str(file_path))
             if doc_errors:
                 for derr in doc_errors:
-                    # derr is expected to be a [message, flag] pair
-                    msg_text = f"Erreur lors de la lecture de {file_path}: {derr[0]}"
-                    errors.append(msg_text)
+                    messages.append(
+                        [
+                            f"Erreur lors de la lecture de {file_path}: {derr[0]}",
+                            derr[1],
+                        ]
+                    )
                 continue
             if doc is None:
-                errors.append(f"Impossible d'initialiser le document: {file_path}")
-                continue
-
-            if not doc.is_readable:
-                # Raison lisible depuis l'objet document
-                reason = getattr(doc, "readable_reason", None) or ""
-                flag = getattr(doc, "readable_flag", None) or ""
-                msg_text = f"Fichier illisible : {file_path}"
-                if reason:
-                    msg_text = f"{msg_text} — {reason}"
-                if flag:
-                    msg_text = f"{msg_text} (flag: {flag})"
-                errors.append(msg_text)
-                continue
-
-            version, local_errors = doc.get_version()
-
-            if version in {"UPSTI_Document_v1", "UPSTI_Document_v2", "EPB_Cours"}:
-                # Récupérer le paramètre de compilation
-                a_compiler = False
-                try:
-                    params, _ = doc.get_compilation_parameters()
-                    if params:
-                        a_compiler = bool(params.get("compiler", False))
-                except Exception:
-                    pass  # En cas d'erreur, on garde False par défaut
-
-                found_documents.append(
-                    {
-                        "name": file_path.stem,
-                        "filename": file_path.name,
-                        "path": str(file_path.resolve()),
-                        "version": version,
-                        "a_compiler": a_compiler,
-                    }
+                messages.append(
+                    [f"Impossible d'initialiser le document: {file_path}", "error"]
                 )
+                continue
 
-    # Ajouter les chemins tronqués
-    _add_truncated_paths(found_documents)
+            # Vérifier la lisibilité
+            if not doc.is_readable:
+                reason = doc.readable_reason or "Raison inconnue"
+                flag = doc.readable_flag or "error"
+                messages.append([f"Fichier illisible ({file_path}): {reason}", flag])
+                continue
 
-    return found_documents, errors
+            # Détection de la version
+            version, version_errors = doc.get_version()
+            if version_errors:
+                for verr in version_errors:
+                    messages.append([f"{file_path}: {verr[0]}", verr[1]])
+
+            # Déterminer la compatibilité
+            compatible = version in {
+                "UPSTI_Document_v1",
+                "UPSTI_Document_v2",
+                "EPB_Cours",
+            }
+
+            # Préparer l'entrée du document
+            doc_entry = {
+                "name": file_path.stem,
+                "filename": file_path.name,
+                "path": str(file_path.resolve()),
+                "version": version or "inconnue",
+                "compatible": compatible,
+            }
+
+            # Récupérer le paramètre de compilation pour les documents compatibles
+            if compatible:
+                # Les documents EPB_Cours ont toujours a_compiler = False
+                if version == "EPB_Cours":
+                    a_compiler = False
+                else:
+                    a_compiler = False
+                    try:
+                        params, _ = doc.get_compilation_parameters()
+                        if params:
+                            a_compiler = bool(params.get("compiler", False))
+                    except Exception:
+                        pass
+                doc_entry["a_compiler"] = a_compiler
+
+            all_documents.append(doc_entry)
+
+    # Filtrer selon le mode demandé (compatible/incompatible/all)
+    if filter_mode == "compatible":
+        temp_documents = [d for d in all_documents if d["compatible"]]
+    elif filter_mode == "incompatible":
+        temp_documents = [d for d in all_documents if not d["compatible"]]
+    else:  # "all"
+        temp_documents = all_documents
+
+    # Filtrer selon compilable_filter (compilable/non-compilable/all)
+    # Pour les documents sans clé 'a_compiler', on considère False
+    if compilable_filter == "compilable":
+        filtered_documents = [
+            d for d in temp_documents if bool(d.get("a_compiler", False))
+        ]
+    elif compilable_filter == "non-compilable":
+        filtered_documents = [
+            d for d in temp_documents if not bool(d.get("a_compiler", False))
+        ]
+    else:  # "all"
+        filtered_documents = temp_documents
+
+    return filtered_documents, messages
+
+
+def format_documents_for_display(
+    documents: List[Dict[str, str]], max_length: int = 88
+) -> List[Dict[str, str]]:
+    """Ajoute des informations de formatage pour l'affichage des documents.
+
+    Ajoute une clé 'display_path' à chaque document contenant le chemin
+    tronqué pour l'affichage (limité à max_length caractères).
+
+    Paramètres
+    ----------
+    documents : List[Dict[str, str]]
+        Liste des documents à formater. Chaque dict doit contenir au minimum
+        une clé 'path'.
+    max_length : int, optional
+        Longueur maximale du chemin d'affichage en caractères.
+        Défaut : 88.
+
+    Retourne
+    --------
+    List[Dict[str, str]]
+        La même liste de documents, modifiée en place avec ajout de
+        'display_path'.
+    """
+    _add_truncated_paths(documents, max_length)
+    return documents
 
 
 def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) -> None:

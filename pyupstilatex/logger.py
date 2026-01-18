@@ -41,7 +41,7 @@ def _annoted_text(
         text_error = "✗"
     else:
         text_info = "INFO"
-        text_success = "SUCCÈS"
+        text_success = "OK"
         text_warning = "WARNING"
         text_error = "ERREUR"
 
@@ -77,7 +77,11 @@ def fmt_generic(
 
 
 def fmt_separator(key: str, flag: Optional[str] = None) -> FormattedMessage:
-    return FormattedMessage(SEPARATORS[key], _level_from_flag(flag))
+    # Affiche les séparateurs en gris pour plus de discrétion
+    sep = SEPARATORS[key]
+    return FormattedMessage(
+        f"{COLOR_DARK_GRAY}{sep}{COLOR_RESET}", _level_from_flag(flag)
+    )
 
 
 # -----------------------------
@@ -87,17 +91,17 @@ DEFAULT_FORMATTERS: Dict[str, Formatter] = {
     "titre1": lambda t, f=None: fmt_generic(
         t,
         f,
-        prefix=f"{SEPARATORS['separateur1']}\n",
-        suffix=f"\n{SEPARATORS['separateur1']}",
+        prefix=f"{fmt_separator('separateur1').text}\n",
+        suffix=f"\n{fmt_separator('separateur1').text}",
     ),
     "titre2": lambda t, f=None: fmt_generic(
         t,
         f,
-        prefix=f"{SEPARATORS['separateur2']}\n",
-        suffix=f"\n{SEPARATORS['separateur2']}",
+        prefix=f"{fmt_separator('separateur2').text}\n",
+        suffix=f"\n{fmt_separator('separateur2').text}",
     ),
     "titre3": lambda t, f=None: fmt_generic(
-        t, f, suffix=f"\n{SEPARATORS['separateur3']}"
+        t, f, suffix=f"\n{fmt_separator('separateur3').text}"
     ),
     "titre4": lambda t, f=None: fmt_generic(t, f),
     "text": lambda t, f=None: fmt_generic(t, f),
@@ -239,7 +243,9 @@ class MessageHandler:
     def separateur3(self):
         self.msg("separateur3", "")
 
-    def affiche_messages(self, messages: list[object], type: str = "info"):
+    def affiche_messages(
+        self, messages: list[object], type: str = "info", format_last: bool = True
+    ):
         if not messages:
             return
         writer = {
@@ -256,7 +262,7 @@ class MessageHandler:
             )
             is_last = idx == len(messages) - 1
             # Use the provided `type` parameter to decide passing `last`.
-            if type == "resultat_item":
+            if type == "resultat_item" and format_last:
                 writer(texte, flag=flag, last=is_last)
             else:
                 writer(texte, flag=flag)

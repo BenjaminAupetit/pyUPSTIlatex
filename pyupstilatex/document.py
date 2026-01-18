@@ -166,7 +166,6 @@ class UPSTILatexDocument:
         """
 
         # Initialisation des retours
-        result: Optional[Dict] = None
         errors: List[List[str]] = []
 
         # Normaliser le niveau de verbosité et le mode
@@ -176,20 +175,28 @@ class UPSTILatexDocument:
         self._verbose = verbose if verbose in valid_verbose else "normal"
 
         try:
+
+            # Titre
+            if self._verbose in ["complete", "normal"]:
+                self.msg.titre2("Préparation de la compilation")
+
             # 1- Vérification de l'intégrité du fichier
             self._compilation_step(
+                mode_ok=["deep", "normal", "quick"],
                 affichage="Vérification de l'intégrité du fichier",
                 fonction=lambda: self.file.check_file("read"),
             )
 
             # 2- Vérification de la version
             self._compilation_step(
+                mode_ok=["deep", "normal", "quick"],
                 affichage="Détection de la version du document",
                 fonction=lambda: self.get_version(check_compatibilite=True),
             )
 
             # 3- Lecture des paramètres de compilation
             self._compilation_step(
+                mode_ok=["deep", "normal", "quick"],
                 affichage="Lecture des paramètres de compilation",
                 fonction=self._get_compilation_parameters_for_compilation,
             )
@@ -216,6 +223,7 @@ class UPSTILatexDocument:
 
             # 7- Générer le QRCode
             self._compilation_step(
+                mode_ok=["deep"],
                 affichage="Génération du QR code du document",
                 fonction=self._generate_qrcode,
             )
@@ -223,55 +231,57 @@ class UPSTILatexDocument:
             # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
             if self.version == "UPSTI_Document_v2":
                 self._compilation_step(
+                    mode_ok=["deep"],
                     affichage="Génération du code latex à partir des métadonnées",
                     fonction=self._generate_latex_template,
+                )
+
+            # 9- Générer le fichier UPSTI_Document_v1 (si UPSTI_Document v2)
+            if self.version == "UPSTI_Document_v2":
+                self._compilation_step(
+                    affichage=(
+                        "Création du fichier tex UPSTI_Document_v1 "
+                        "(pour la rétrocompatibilité)"
+                    ),
+                    fonction=self._generate_UPSTI_Document_v1_tex_file,
+                )
+
+            # Titre intermédiaire
+            if self._verbose in ["complete", "normal"]:
+                self.msg.titre2("Compilation du document LaTeX")
+
+            # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
+            self._compilation_step(
+                mode_ok=["deep", "normal", "quick"],
+                fonction=self._compile_tex,
+            )
+
+            # Post-traitements
+            if self._verbose in ["complete", "normal"] and self._mode in [
+                "deep",
+                "normal",
+            ]:
+                self.msg.titre2("Post-traitements après compilation")
+
+            # 11- Copie des fichiers dans le dossier cible
+            if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
+                self._compilation_step(
+                    affichage="Copie des fichiers compilés dans le dossier cible",
+                    fonction=self._copy_compiled_files,
+                )
+
+            # 12- Upload (création du fichier meta, du zip, upload et webhook)
+            if self.compilation_parameters.get("upload", False):
+                self._compilation_step(
+                    fonction=self._upload,
                 )
 
         # On gère ici les étapes qui intterrompent la compilation
         except CompilationStepError:
             return None, []
 
-        # -------------------------------------------------------------
-        # TO CONTINUE
-        # -------------------------------------------------------------
-        return None, [["Test de la méthode compile", "error"]]
-        # -------------------------------------------------------------
-
-        # 9- Fichier tex v1 pour la rétrocompatibilité (sera ajouté dans les sources)
-        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            step_result, step_errors = self._generate_UPSTI_Document_v1_tex_file()
-            if step_errors:
-                errors.extend(step_errors)
-            if step_result is not None:
-                result = {**(result or {}), **step_result}
-
-        # 4- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
-        step_result, step_errors = self._compile_tex()
-        if step_errors:
-            errors.extend(step_errors)
-        if step_result is not None:
-            result = {**(result or {}), **step_result}
-
-        # 5- Copie des fichiers dans le dossier cible
-        if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
-            step_result, step_errors = self._copy_compiled_files()
-            if step_errors:
-                errors.extend(step_errors)
-            if step_result is not None:
-                result = {**(result or {}), **step_result}
-
-        # 6- Upload (création du fichier meta, du zip, upload et webhook)
-        # Dans le fichier meta, on stockera aussi le dossier local
-        if mode in ["deep", "normal"] and self.compilation_parameters.get(
-            "upload", False
-        ):
-            step_result, step_errors = self._upload()
-            if step_errors:
-                errors.extend(step_errors)
-            if step_result is not None:
-                result = {**(result or {}), **step_result}
-
-        return result, errors
+        # Si on est arrivé ici, c'est que tout s'est bien passé
+        return True, errors
 
     def _compilation_step(
         self,
@@ -324,6 +334,8 @@ class UPSTILatexDocument:
         """
         mode = mode or getattr(self, "_mode", "normal")
         verbose = verbose or getattr(self, "_verbose", "complete")
+        format_last_message = bool(verbose != "messages")
+
         messages: List[List[str]] = []
         resultat = None
         if mode in mode_ok:
@@ -334,7 +346,9 @@ class UPSTILatexDocument:
 
             if verbose in ["complete"] and len(messages) == 0:
                 messages.append(["OK !", "success"])
-            self.msg.affiche_messages(messages, "resultat_item")
+            self.msg.affiche_messages(
+                messages, "resultat_item", format_last=format_last_message
+            )
 
             # Si resultat est None, c'est une erreur fatale
             if resultat is None:
@@ -852,7 +866,7 @@ class UPSTILatexDocument:
             généré, et messages est une liste de [message, flag].
         """
         # On génère un fichier LaTeX v1 à partir des métadonnées
-        return None, []
+        return "N.I", [["Non implémenté.", "info"]]
 
     def _compile_tex(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le fichier LaTeX (méthode interne).
@@ -864,7 +878,7 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
         # On compile le fichier LaTeX (pdflatex, xelatex, lualatex, etc.)
-        return None, []
+        return "N.I", [["Non implémenté.", "info"]]
 
     def _copy_compiled_files(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Copie les fichiers compilés dans le dossier cible (méthode interne).
@@ -876,7 +890,7 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
         # On copie les fichiers compilés dans le dossier cible
-        return None, []
+        return "N.I", [["Non implémenté.", "info"]]
 
     def _upload(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Upload les fichiers compilés via FTP/Webhook (méthode interne).
@@ -890,7 +904,9 @@ class UPSTILatexDocument:
         # On crée le zip, le fichier meta, et on upload via FTP/Webhook
         # Il faut mettre les meta, les parametres de config et la liste
         # des fichiers uploadés dans le fichier json/yaml meta
-        return None, []
+        # Dans le fichier meta, on stockera aussi le dossier local
+
+        return "N.I", [["Non implémenté.", "info"]]
 
     def _parse_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Extrait les métadonnées depuis le front matter YAML (méthode interne).
@@ -1187,7 +1203,7 @@ class UPSTILatexDocument:
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
-        return None, [["Version non reconnue ou non prise en charge.", "error"]]
+        return "Inconnue", []
 
     def _format_metadata(
         self, data: Dict, *, source: str

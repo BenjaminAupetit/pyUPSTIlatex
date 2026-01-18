@@ -4,8 +4,6 @@
 
 - Samedi
 
-  - Factoriser les fonctions en les prefixant avec _compile_
-  - voir s'il faut renommer get_compilation_parametres (si ça ne concerne pas que la compilation) : ex: get_parametres_locaux
   - pour liste-fichier, ajouter un parametre pour lister les fichiers rejetés (qui retourne la raison du rejet)
 
 - Paramètres
@@ -40,6 +38,10 @@
 
 - renommer les dossiers en virant les majuscules
 - supprimer @parametres.upsti.ini et le remplacer si nécessaire par le YAML
+
+### Déploiement
+
+- faire un script pour copier un fichier yaml dans tous les sous-dossiers avec un fichier compilable (pour la thématique)
 
 ## Release
 

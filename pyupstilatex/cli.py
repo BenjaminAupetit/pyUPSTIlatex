@@ -4,7 +4,7 @@ import click
 
 from .config import load_config
 from .document import UPSTILatexDocument
-from .filesystem import scan_for_documents
+from .filesystem import format_documents_for_display, scan_for_documents
 from .logger import (
     COLOR_DARK_GRAY,
     COLOR_GREEN,
@@ -167,20 +167,32 @@ def infos(ctx, path):
     default=False,
     help="Affiche le chemin complet au lieu du chemin tronqué à 88 caractères.",
 )
+@click.option(
+    "--filter-mode",
+    default="compatible",
+    help=(
+        "Mode de filtrage des fichiers: 'compatible' (défaut), "
+        "'incompatible' ou 'all'."
+    ),
+)
+@click.option(
+    "--compilability",
+    default="all",
+    help=(
+        "Mode de filtrage des fichiers suivant leur compilabilité: 'all' (défaut), "
+        "'compilable' ou 'non-compilable'."
+    ),
+)
 @click.pass_context
-def liste_fichiers(ctx, path, exclude, show_full_path):
+def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilability):
     """Affiche la liste des fichiers UPSTI_document dans un ou plusieurs dossiers."""
 
     msg: MessageHandler = ctx.obj["msg"]
     cfg = load_config()
 
-    # Déterminer les racines à scanner (priorité: path args > env)
-    if path and len(path) > 0:
-        roots_to_scan = list(path)
-    else:
-        roots_to_scan = list(
-            cfg.traitement_par_lot.dossiers_a_traiter
-        )  # scan_for_documents utilisera le .env
+    # Déterminer les racines à scanner
+    # Si path fourni, on l'utilise, sinon scan_for_documents utilisera la config
+    roots_to_scan = list(path) if path and len(path) > 0 else None
 
     # Déterminer les motifs d'exclusion (priorité: --exclude > env)
     exclude_patterns = list(exclude) if exclude else None  # None = utiliser .env
@@ -197,21 +209,43 @@ def liste_fichiers(ctx, path, exclude, show_full_path):
                 "LISTE des fichiers UPSTI_document contenus dans :\n  - "
                 + "\n  - ".join(roots_to_scan)
             )
+    else:
+        # Utilisation de la configuration
+        dossiers_config = cfg.traitement_par_lot.dossiers_a_traiter
+        if dossiers_config and len(dossiers_config) > 0:
+            if len(dossiers_config) == 1:
+                msg.titre1(
+                    f"LISTE des fichiers UPSTI_document contenus dans : "
+                    f"{dossiers_config[0]} (depuis la configuration)"
+                )
+            else:
+                msg.titre1(
+                    "LISTE des fichiers UPSTI_document contenus dans (depuis la "
+                    "configuration) :\n  - " + "\n  - ".join(dossiers_config)
+                )
+        else:
+            msg.titre1("LISTE des fichiers UPSTI_document")
 
     # Scanner les documents
-    documents, errors = scan_for_documents(roots_to_scan, exclude_patterns)
+    documents, messages = scan_for_documents(
+        roots_to_scan,
+        exclude_patterns,
+        filter_mode=filter_mode,
+        compilable_filter=compilability,
+    )
 
-    # Gérer les erreurs fatales (aucune racine définie)
-    if not documents and errors:
-        for e in errors:
-            msg.info(e, flag="warning")
+    # Gérer les erreurs fatales
+    if documents is None:
+        msg.affiche_messages(messages, "info")
         return _exit_with_separator(ctx, msg)
 
     # Afficher les documents trouvés
     if not documents:
-        msg.info("Aucun document compatible trouvé.", flag="warning")
+        msg.info("Aucun document trouvé.", flag="warning")
     else:
-        # Calculer les largeurs de colonnes pour un affichage propre
+        # Préparer les chemins d'affichage (tronqués) puis calculer les largeurs
+        # format_documents_for_display ajoute la clé 'display_path' en place.
+        format_documents_for_display(documents)
         display_key = "path" if show_full_path else "display_path"
         max_path = max(len(d[display_key]) for d in documents)
         max_version = max(len(d["version"]) for d in documents)
@@ -237,11 +271,10 @@ def liste_fichiers(ctx, path, exclude, show_full_path):
             "document(s) trouvé(s)."
         )
 
-    # Erreurs rencontrées
-    if errors:
+    # Erreurs/avertissements rencontrés
+    if messages:
         msg.separateur2()
-        for e in errors:
-            msg.info(e, flag="warning")
+        msg.affiche_messages(messages, "info")
 
     return _exit_with_separator(ctx, msg)
 
@@ -287,13 +320,13 @@ def compile(ctx, path, mode):
         doc = _check_path(ctx, chemin)
 
         # On lance la compilation
-        result, messages = doc.compile(mode=mode, verbose="complete")
+        result, messages = doc.compile(mode=mode, verbose="normal")
 
         # Affichage des différents messages
         msg.affiche_messages(messages, "resultat_item")
 
         # Message de conclusion
-        msg.separateur2()
+        msg.separateur1()
         if result:
             msg.info("Compilation réussie", flag="success")
         else:
@@ -303,50 +336,49 @@ def compile(ctx, path, mode):
 
     elif chemin.is_dir():
         # Liste des fichiers contenus dans le dossier passé en paramètres
-        msg.info("Recherche de tous les fichiers tex UPSTI_document à compiler")
-        documents, errors = scan_for_documents([str(chemin)], None)
+        msg.titre2("Recherche de tous les fichiers tex UPSTI_document à compiler")
+        documents_a_compiler, messages = scan_for_documents(
+            [str(chemin)],
+            None,
+            filter_mode="compatible",
+            compilable_filter="compilable",
+        )
 
-        # On récupère les infos de compilation de chaque fichier
-        documents_a_compiler: list[dict] = []
-        for d in documents:
-            try:
-                doc, doc_errors = UPSTILatexDocument.from_path(d["path"], msg=msg)
-                if doc_errors:
-                    for error in doc_errors:
-                        msg.info(f"{error[0]}", flag=error[1])
-                params, _ = doc.get_compilation_parameters()
-                d["parametres_compilation"] = params
-                if params and params.get("compiler"):
-                    documents_a_compiler.append(d)
-            except Exception as e:
-                msg.info(
-                    f"Erreur lors de la lecture des paramètres de {d['filename']}: {e}",
-                    flag="warning",
-                )
-                continue
+        # Afficher les messages d'erreur/warning du scan
+        if messages:
+            msg.affiche_messages(messages, "info")
+            msg.separateur2()
+
+        # Gérer les erreurs fatales
+        if documents_a_compiler is None:
+            msg.separateur1()
+            msg.info("Erreur fatale lors du scan.", flag="error")
+            return _exit_with_separator(ctx, msg)
 
         nb_documents = len(documents_a_compiler)
         if nb_documents == 0:
-            msg.resultat("Aucun document compatible trouvé.", flag="error")
+            msg.separateur1()
+            msg.info("Aucun document compatible trouvé.", flag="error")
             return _exit_with_separator(ctx, msg)
 
-        # Affichage de la liste des documents trouvés
+        # Affichage de la liste des documents trouvés (avec numérotation)
         max_name = max(len(d["filename"]) for d in documents_a_compiler)
         max_version = max(len(d["version"]) for d in documents_a_compiler)
-        for d in sorted(documents_a_compiler, key=lambda x: x["filename"]):
-            msg.resultat_item(
-                f"{d['filename']:{max_name}}  {d['version']:>{max_version}}"
-            )
-        msg.resultat_conclusion(
-            f"{COLOR_GREEN}{nb_documents}{COLOR_RESET} document(s) trouvé(s)."
-        )
+
+        for idx, d in enumerate(
+            sorted(documents_a_compiler, key=lambda x: x["filename"]), start=1
+        ):
+            msg.info(f"{d['filename']:{max_name}}  " f"{d['version']:>{max_version}}")
 
         if nb_documents > 1:
             str_fichiers_a_traiter = (
-                f"ces {nb_documents} fichiers (la procédure peut-être très longue)"
+                f"ces {COLOR_GREEN}{nb_documents} documents"
+                f"{COLOR_RESET} (la procédure peut-être très longue)"
             )
+            compile_verbose = "messages"
         else:
-            str_fichiers_a_traiter = "ce fichier"
+            str_fichiers_a_traiter = f"{COLOR_GREEN}ce fichier{COLOR_RESET}"
+            compile_verbose = "complete"
 
         msg.titre2(
             f"Souhaitez-vous réellement compiler {str_fichiers_a_traiter} ? (O/N)"
@@ -355,15 +387,59 @@ def compile(ctx, path, mode):
         doit_compiler = input()
         if doit_compiler not in ["O", "o"]:
             msg.separateur1()
-            msg.info("Opération annulée.", flag="error")
+            msg.info("Opération annulée par l'utilisateur.", flag="error")
             return _exit_with_separator(ctx, msg)
         else:
-            msg.titre2("Démarrage de la compilation...")
 
-    # TOCONTINUE : il faut continuer la compilation maintenant que j'ai bien accès
-    # à tous les fichiers...
+            if nb_documents == 1:
+                msg.titre2(f"Compilation de : {documents_a_compiler[0]['filename']}")
+            else:
+                msg.titre2("Démarrage de la compilation...")
 
-    msg.separateur1()
+            # Calculer la largeur de numérotation (1 pour 1-9, 2 pour 10-99, ...)
+            num_width = len(str(nb_documents))
+
+            # Compiler chaque document (numérotation cohérente)
+            for idx, doc in enumerate(documents_a_compiler, start=1):
+
+                if nb_documents > 1:
+                    number_label = f"{idx:0{num_width}d}"
+                    msg.info(f"{number_label}/{nb_documents} - {doc['filename']}")
+
+                # Lancer la compilation
+                document = UPSTILatexDocument.from_path(doc["path"], msg=msg)[0]
+                result, messages = document.compile(mode=mode, verbose=compile_verbose)
+
+                # Message de conclusion pour ce fichier
+                if nb_documents == 1:
+                    msg.separateur1()
+                    if result:
+                        msg.info("Compilation réussie", flag="success")
+                    else:
+                        msg.info("Échec de la compilation", flag="error")
+                else:
+                    if result:
+                        msg.resultat_item(
+                            "Compilation réussie", flag="success", last=True
+                        )
+                    else:
+                        msg.resultat_item(
+                            "Échec de la compilation", flag="error", last=True
+                        )
+
+        # Message de conclusion
+        if nb_documents > 1:
+            msg.separateur1()
+            msg.info("Compilation terminée")
+
+        return _exit_with_separator(ctx, msg)
+
+        #
+        #
+        # CONTINUE : il faut voir ce que ça fait quand on a un seul fichier dans
+        # le dossier
+        #
+        #
 
 
 def _exit_with_separator(ctx, msg):
