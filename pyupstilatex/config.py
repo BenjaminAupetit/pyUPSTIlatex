@@ -145,6 +145,7 @@ class CompilationConfig:
     est_un_document_a_trous: bool
     copier_pdf_dans_dossier_cible: bool
     upload: bool
+    upload_diaporama: bool
     dossier_ftp: str
 
     # Paramètres de compilation LaTeX
@@ -153,7 +154,8 @@ class CompilationConfig:
     # Compilation rapide et OS
     affichage_detaille_dans_console: bool
     nom_fichier_parametres_compilation: str
-    extension_fichier_metadonnees: str
+    extension_fichier_infos_upload: str
+    extensions_diaporama: list[str]
     format_nom_fichier: str
     dossier_cible_par_rapport_au_fichier_tex: str
     copier_fichier_version: bool
@@ -191,6 +193,7 @@ class CompilationConfig:
                 "COMPILATION_DEFAUT_COPIER_PDF_DANS_DOSSIER_CIBLE", True
             ),
             upload=get_bool("COMPILATION_DEFAUT_UPLOAD", True),
+            upload_diaporama=get_bool("COMPILATION_DEFAUT_UPLOAD_DIAPORAMA", True),
             dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
             # Paramètres de compilation LaTeX
             nombre_compilations_latex=get_int(
@@ -204,8 +207,13 @@ class CompilationConfig:
                 "COMPILATION_OS_NOM_FICHIER_PARAMETRES_COMPILATION",
                 "@parametres.pyUPSTIlatex.yaml",
             ),
-            extension_fichier_metadonnees=get_str(
-                "COMPILATION_OS_EXTENSION_FICHIER_METADONNEES", ".meta.json"
+            extension_fichier_infos_upload=get_str(
+                "COMPILATION_OS_EXTENSION_FICHIER_INFOS_UPLOAD", ".infos.json"
+            ),
+            extensions_diaporama=get_list(
+                "COMPILATION_OS_EXTENSIONS_DIAPORAMA",
+                default=[".pptx", ".ppt", ".key", ".odp"],
+                sep=",",
             ),
             format_nom_fichier=get_str(
                 "COMPILATION_OS_FORMAT_NOM_FICHIER",
@@ -300,6 +308,7 @@ class TraitementParLotConfig:
 class FTPConfig:
     """Valeurs par défaut pour la gestion de l'upload, provenant du .env"""
 
+    secret_key: str
     user: str
     password: str
     host: str
@@ -308,6 +317,7 @@ class FTPConfig:
     @classmethod
     def from_env(cls) -> "FTPConfig":
         return cls(
+            secret_key=get_str("FTP_SECRET_KEY", "dummy_secret_key"),
             user=get_str("FTP_USER", "ftp_user"),
             password=get_str("FTP_PASSWORD", "ftp_pwd"),
             host=get_str("FTP_HOST", "ftp_host"),

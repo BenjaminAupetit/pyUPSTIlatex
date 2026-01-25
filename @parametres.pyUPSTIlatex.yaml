@@ -22,6 +22,7 @@ versions_accessibles:
 est_un_document_a_trous: true
 copier_pdf_dans_dossier_cible: true
 upload: true
+upload_diaporama: true
 dossier_ftp: "/test/"
 
 surcharge_metadonnees:

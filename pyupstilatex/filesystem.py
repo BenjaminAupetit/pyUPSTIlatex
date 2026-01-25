@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 from .exceptions import DocumentParseError
 from .storage import FileSystemStorage, StorageProtocol
@@ -477,6 +478,7 @@ def scan_for_documents(
         filtered_documents = [
             d for d in temp_documents if bool(d.get("a_compiler", False))
         ]
+
     elif compilable_filter == "non-compilable":
         filtered_documents = [
             d for d in temp_documents if not bool(d.get("a_compiler", False))
@@ -484,7 +486,26 @@ def scan_for_documents(
     else:  # "all"
         filtered_documents = temp_documents
 
-    return filtered_documents, messages
+    # Exclure les fichiers qui correspondent aux suffixes d'accessibilité
+    # Pattern: "*.{suffixe_accessibilite}.tex"
+    accessibility_suffixes = [
+        info.get("suffixe", "") for info in VERSIONS_ACCESSIBLES_DISPONIBLES.values()
+    ]
+    accessibility_patterns = [
+        f"*{suffix}.tex" for suffix in accessibility_suffixes if suffix
+    ]
+
+    final_documents = []
+    for doc in filtered_documents:
+        filename = doc["filename"]
+        # Vérifier si le nom du fichier correspond à un pattern d'accessibilité
+        is_accessibility_file = any(
+            fnmatch.fnmatch(filename, pattern) for pattern in accessibility_patterns
+        )
+        if not is_accessibility_file:
+            final_documents.append(doc)
+
+    return final_documents, messages
 
 
 def format_documents_for_display(

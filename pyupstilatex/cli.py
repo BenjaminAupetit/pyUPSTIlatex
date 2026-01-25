@@ -256,12 +256,13 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
             version_text = doc["version"].ljust(max_version)
 
             # Colorer la version selon le paramètre compiler
+            version_colored = f"{COLOR_DARK_GRAY}│{COLOR_RESET} "
             if doc.get("a_compiler", False):
-                version_colored = f"{version_text}"
+                version_colored += f"{version_text}"
             else:
-                version_colored = f"{COLOR_RED}{version_text}{COLOR_RESET}"
+                version_colored += f"{COLOR_DARK_GRAY}{version_text}{COLOR_RESET}"
 
-            msg.info(f"{path_padded}  {version_colored}")
+            msg.info(f"{path_padded} {version_colored}")
 
         # Total
         nb_documents = len(documents)
@@ -304,6 +305,7 @@ def compile(ctx, path, mode, dry_run):
 
     chemin = Path(path)
     msg: MessageHandler = ctx.obj["msg"]
+    compilation_unique = False
 
     # Normaliser le paramètre 'mode'
     try:
@@ -325,26 +327,8 @@ def compile(ctx, path, mode, dry_run):
         msg.info(f"Fichier ou dossier introuvable : {chemin}", flag="error")
         return _exit_with_separator(ctx, msg)
 
-    if chemin.is_file():
-        # Vérification et instanciation centralisées
-        doc = _check_path(ctx, chemin)
-
-        # On lance la compilation
-        result, messages = doc.compile(mode=mode, verbose="normal", dry_run=dry_run)
-
-        # Affichage des différents messages
-        msg.affiche_messages(messages, "resultat_item")
-
-        # Message de conclusion
-        msg.separateur1()
-        if result:
-            msg.info("Compilation réussie", flag="success")
-        else:
-            msg.info("Échec de la compilation", flag="error")
-        msg.separateur1()
-        return ctx.exit(0)
-
-    elif chemin.is_dir():
+    # Cas où on a un dossier
+    if chemin.is_dir():
         # Liste des fichiers contenus dans le dossier passé en paramètres
         msg.titre2("Recherche de tous les fichiers tex UPSTI_document à compiler")
         documents_a_compiler, messages = scan_for_documents(
@@ -378,7 +362,10 @@ def compile(ctx, path, mode, dry_run):
         for idx, d in enumerate(
             sorted(documents_a_compiler, key=lambda x: x["filename"]), start=1
         ):
-            msg.info(f"{d['filename']:{max_name}}  " f"{d['version']:>{max_version}}")
+            msg.info(
+                f"{d['filename']:{max_name}}  "
+                f"{COLOR_DARK_GRAY}│{COLOR_RESET} {d['version']:>{max_version}}"
+            )
 
         if nb_documents > 1:
             str_fichiers_a_traiter = (
@@ -400,62 +387,102 @@ def compile(ctx, path, mode, dry_run):
             msg.info("Opération annulée par l'utilisateur.", flag="error")
             return _exit_with_separator(ctx, msg)
         else:
-
             if nb_documents == 1:
                 msg.titre2(f"Compilation de : {documents_a_compiler[0]['filename']}")
+                compilation_unique = True
+                doc = UPSTILatexDocument.from_path(
+                    documents_a_compiler[0]["path"], msg=msg
+                )[0]
+
             else:
                 msg.titre2("Démarrage de la compilation...")
+                statut_compilation_fichiers = {
+                    "success": [],
+                    "warning": [],
+                    "error": [],
+                }
 
-            # Calculer la largeur de numérotation (1 pour 1-9, 2 pour 10-99, ...)
-            num_width = len(str(nb_documents))
+                # Calculer la largeur de numérotation (1 pour 1-9, 2 pour 10-99, ...)
+                num_width = len(str(nb_documents))
 
-            # Compiler chaque document (numérotation cohérente)
-            for idx, doc in enumerate(documents_a_compiler, start=1):
+                # Compiler chaque document (numérotation cohérente)
+                for idx, doc in enumerate(documents_a_compiler, start=1):
 
-                if nb_documents > 1:
-                    number_label = f"{idx:0{num_width}d}"
-                    msg.info(
-                        f"{COLOR_DARK_GRAY}{number_label}/{nb_documents} - "
-                        f"{COLOR_RESET}{doc['filename']}"
+                    if nb_documents > 1:
+                        number_label = f"{idx:0{num_width}d}"
+                        msg.info(
+                            f"{COLOR_DARK_GRAY}{number_label}/{nb_documents} - "
+                            f"{COLOR_RESET}{doc['filename']}"
+                        )
+
+                    # Lancer la compilation
+                    document = UPSTILatexDocument.from_path(doc["path"], msg=msg)[0]
+                    result, messages = document.compile(
+                        mode=mode, verbose=compile_verbose, dry_run=dry_run
                     )
-
-                # Lancer la compilation
-                document = UPSTILatexDocument.from_path(doc["path"], msg=msg)[0]
-                result, messages = document.compile(
-                    mode=mode, verbose=compile_verbose, dry_run=dry_run
-                )
-
-                # Message de conclusion pour ce fichier
-                if nb_documents == 1:
-                    msg.separateur1()
-                    if result:
-                        msg.info("Compilation réussie", flag="success")
+                    # Protéger contre un statut inattendu
+                    if result in statut_compilation_fichiers:
+                        statut_compilation_fichiers[result].append(doc['filename'])
                     else:
-                        msg.info("Échec de la compilation", flag="error")
+                        # Statut inattendu : traiter comme erreur
+                        statut_compilation_fichiers['error'].append(doc['filename'])
+
+                    if nb_documents > 1:
+                        if affiche_details and result == "success":
+                            messages.append(["OK !", "success"])
+
+                        msg.affiche_messages(messages, "resultat_item")
+
+                # Message de conclusion
+                msg.separateur1()
+                if (
+                    len(statut_compilation_fichiers['warning']) == 0
+                    and len(statut_compilation_fichiers['error']) == 0
+                ):
+                    msg.info("Compilation terminée")
                 else:
-                    if affiche_details:
-                        if result:
-                            msg.resultat_item(
-                                "Compilation réussie", flag="success", last=True
-                            )
-                        else:
-                            msg.resultat_item(
-                                "Échec de la compilation", flag="error", last=True
-                            )
+                    msg.info("Compilation terminée :")
+                    nb_warnings = len(statut_compilation_fichiers['warning'])
+                    if nb_warnings > 0:
+                        pluriel = "s" if nb_warnings > 1 else ""
+                        msg.info(
+                            f"  - {COLOR_ORANGE}{nb_warnings}{COLOR_RESET} fichier"
+                            f"{pluriel} partiellement compilé{pluriel} :"
+                        )
+                        for f in statut_compilation_fichiers['warning']:
+                            msg.info(f"      - {f}")
+
+                    nb_errors = len(statut_compilation_fichiers['error'])
+                    if nb_errors > 0:
+                        pluriel = "s" if nb_errors > 1 else ""
+                        msg.info(
+                            f"  - {COLOR_RED}{nb_errors}{COLOR_RESET} "
+                            f"fichier{pluriel} en échec de compilation :"
+                        )
+                        for f in statut_compilation_fichiers['error']:
+                            msg.info(f"      - {f}")
+
+                return _exit_with_separator(ctx, msg)
+
+    # Cas où on a un fichier unique
+    elif chemin.is_file():
+        # Vérification et instanciation centralisées
+        doc = _check_path(ctx, chemin)
+        compilation_unique = True
+
+    if compilation_unique:
+        result, messages = doc.compile(mode=mode, verbose="normal", dry_run=dry_run)
 
         # Message de conclusion
-        if nb_documents > 1:
-            msg.separateur1()
-            msg.info("Compilation terminée")
-
+        msg.separateur1()
+        # result est toujours "success", "warning" ou "error" (string)
+        if result == "error":
+            msg.info("Échec de la compilation", flag="error")
+        elif result == "warning":
+            msg.info("Compilation partiellement réussie", flag="warning")
+        else:  # "success"
+            msg.info("Compilation réussie", flag="success")
         return _exit_with_separator(ctx, msg)
-
-        #
-        #
-        # CONTINUE : il faut voir ce que ça fait quand on a un seul fichier dans
-        # le dossier
-        #
-        #
 
 
 def _exit_with_separator(ctx, msg):

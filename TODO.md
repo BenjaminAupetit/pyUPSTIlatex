@@ -1,10 +1,8 @@
 # TODO
 
-Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
-
-Utiliser latexmk pour la compilation LaTeX
-
-Changer UPSTI_Document_v2 en upsti-latex
+- Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
+- Faire un .env exemple
+- Changer UPSTI_Document_v2 en upsti-latex
 
 ## En cours
 
@@ -12,41 +10,38 @@ Changer UPSTI_Document_v2 en upsti-latex
   - Prévoir un fichier pyUPSTIlatex-custom.json
   - Prévoir aussi une classe UPSTILatexDocumentCustom
 
-- Compiler
-  - Créer les fonctions pour ajouter ou supprimer des métadonnées dans un document (en v1 et en v2)
-
 - LaTeX
   - Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
 
-## Roadmap
+## upsti-latex
 
-1. Finir le script de compilation
-2. Scripts pour modifier les fichier tex : ajouter/modifier balise/meta, supprimer, modifier zone, etc...
-3. Script de migration v1 <-> v2
-4. Poly de td et de colles
+### A terminer
 
-## À faire plus tard
+- UPSTILatexDocument
+  - TODO : `\_generate_latex_template`
+  - TODO : `\_generate_UPSTI_Document_v1_tex_file`
+  - TODO : `\_create_accessible_version` : voir s'il faut passer par le handler pour créer les versions accessibles
+- Script d'adaptation à pyUPSTIlatex
+  - mettre à jour les id_unique (ajout si manquant, détection de doublons)
+  - renommer les dossiers en virant les majuscules
+  - supprimer @parametres.upsti.ini et le remplacer si nécessaire par le YAML (faire un script par dossier, avec la définition des paramètres dans la ligne de commande)
+  - changer Src en src (le nom du dossier et dans les fichiers tex...), pareil pour les dossiers spécifiés dans le config, et pour les suffixes de fichiers
+- Script de migration v1 -> v2
 
-- [ ] Faire un script pour afficher les valeurs possibles des différentes paramètres
+### En projet
 
-## Fonctionnalités
+- Combiner tous les polys de TD en un seul, avec pagination qui va bien.
 
-- [ ] Faire un script plus propre de conception de poly de TD : ajout d'une meta : is_in_poly = True/False, compilation dans un seul fichier tex, création de la table des matieres, etc... ou bien on conserve l'étape de transition par le fichier xml... L'idée serait de faire un seul poly en compilant directement les contenus des fichiers tex, sans rajouter de pages blanches, du coup...
+## LaTeX
 
-### Template LaTeX v3
+### Template upsti-latex
 
 - utiliser jinja 2 ?
-- Faire un dossier de templates par défaut avec possibilité d'override (avec les images aussi, et les packages)
-
-### Migration -> UPSTIv2
-
-- renommer les dossiers en virant les majuscules
-- supprimer @parametres.upsti.ini et le remplacer si nécessaire par le YAML
+- Faire un dossier de templates par défaut avec possibilité d'override (avec les images aussi, et les packages) et possibilité de spécifi la variante dans le fichier YAML (d'abord on regarde si le nom du template spécifié est un sous_dossier de templates\custom_EB, sinon, on regarde dans template\defaut). On peut spécifier le nom du template dans le .env ou dans le .YAML, et la variante du template (colle1, colle2, cours1, etc...) dans le fichier YAML uniqument.
 
 ### Déploiement
-
-- faire un script pour copier un fichier yaml dans tous les sous-dossiers avec un fichier compilable (pour la thématique)
 
 ## Release
 
 - Faire une copie vide du fichier .env pour la distrib
+- Peaufiner le fichier README.md

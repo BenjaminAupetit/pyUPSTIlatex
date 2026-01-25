@@ -1,3 +1,4 @@
+import glob
 import inspect
 import shutil
 import time
@@ -8,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import yaml
 from slugify import slugify
 
+from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 from .exceptions import CompilationStepError
 from .filesystem import DocumentFile
@@ -27,18 +29,48 @@ from .utils import (
 
 @dataclass
 class UPSTILatexDocument:
+    """Représente un document LaTeX UPSTI.
+
+    Cette classe gère l'ensemble du cycle de vie d'un document LaTeX UPSTI :
+    - Détection automatique de la version (v1/v2/EPB)
+    - Extraction et validation des métadonnées
+    - Compilation avec gestion des versions élève/prof/accessibles
+    - Post-traitements (copie, upload)
+
+    Attributs
+    ---------
+    source : str
+        Chemin vers le fichier source .tex
+    storage : StorageProtocol
+        Backend de stockage (par défaut : système de fichiers local)
+    strict : bool
+        Si True, lève des exceptions en cas d'erreur de lecture
+    require_writable : bool
+        Si True, exige que le fichier soit modifiable
+    msg : MessageHandler
+        Gestionnaire de messages pour l'affichage console/log
+    """
+
+    # === CHAMPS PUBLICS ===
     source: str
     storage: StorageProtocol = field(default_factory=FileSystemStorage)
     strict: bool = False
     require_writable: bool = False
     msg: MessageHandler = field(default_factory=NoOpMessageHandler)
+
+    # === CHAMPS PRIVÉS (CACHE) ===
     _metadata: Optional[Dict] = field(default=None, init=False)
     _compilation_parameters: Optional[Dict] = field(default=None, init=False)
-    # _commands: Optional[Dict] = field(default=None, init=False)
-    # _zones: Optional[Dict] = field(default=None, init=False)
     _version: Optional[str] = field(default=None, init=False)
     _file: Optional[DocumentFile] = field(default=None, init=False)
     _handler: Optional[DocumentVersionHandler] = field(default=None, init=False)
+    _liste_fichiers: Dict[str, List[Path]] = field(
+        default_factory=lambda: {"compiled": [], "autres": []}, init=False
+    )
+
+    # =========================================================================
+    # MÉTHODES SPÉCIALES
+    # =========================================================================
 
     def __post_init__(self):
         """Initialise l'accès fichier via DocumentFile."""
@@ -48,6 +80,10 @@ class UPSTILatexDocument:
             strict=self.strict,
             require_writable=self.require_writable,
         )
+
+    # =========================================================================
+    # MÉTHODES DE CLASSE
+    # =========================================================================
 
     @classmethod
     def from_path(
@@ -78,6 +114,10 @@ class UPSTILatexDocument:
             )
             return None, errors
 
+    # =========================================================================
+    # PROPERTIES (ACCÈS AUX ATTRIBUTS CACHED)
+    # =========================================================================
+
     @property
     def file(self) -> DocumentFile:
         """Accès direct à l'objet système de fichiers (DocumentFile)."""
@@ -85,9 +125,11 @@ class UPSTILatexDocument:
             raise RuntimeError("DocumentFile non initialisé")
         return self._file
 
-    # Propriétés d'accès simples (délèguent à DocumentFile)
+    # --- Properties déléguées à DocumentFile ---
+
     @property
     def exists(self) -> bool:
+        """Indique si le fichier existe."""
         return self.file.exists
 
     @property
@@ -112,10 +154,14 @@ class UPSTILatexDocument:
 
     @property
     def content(self) -> str:
+        """Retourne le contenu textuel du fichier."""
         return self.file.read()
+
+    # --- Properties avec cache automatique ---
 
     @property
     def version(self):
+        """Retourne la version du document (UPSTI_Document_v1/v2, EPB_Cours)."""
         if self._version is not None:
             return self._version
         return self.get_version()[0]
@@ -131,6 +177,10 @@ class UPSTILatexDocument:
         if self._compilation_parameters is not None:
             return self._compilation_parameters
         return self.get_compilation_parameters()[0]
+
+    # =========================================================================
+    # MÉTHODES PUBLIQUES PRINCIPALES
+    # =========================================================================
 
     def compile(
         self, mode: str = "normal", verbose: str = "normal", dry_run: bool = False
@@ -165,7 +215,7 @@ class UPSTILatexDocument:
         """
 
         # Initialisation des retours
-        errors: List[List[str]] = []
+        messages_compilation: List[List[str]] = []
 
         # Normaliser le niveau de verbosité et le mode
         valid_modes = {"deep", "normal", "quick"}
@@ -178,6 +228,9 @@ class UPSTILatexDocument:
             "dry_run": dry_run,
         }
 
+        # Initialisation du statut global
+        statut_compilation: str = "success"
+
         try:
 
             # Titre
@@ -185,72 +238,80 @@ class UPSTILatexDocument:
                 self.msg.titre2("Préparation de la compilation")
 
             # 1- Vérification de l'intégrité du fichier
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Vérification de l'intégrité du fichier",
                 fonction=lambda: self.file.check_file("read"),
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 2- Vérification de la version
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Détection de la version du document",
                 fonction=lambda: self.get_version(check_compatibilite=True),
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 3- Lecture des paramètres de compilation
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Lecture des paramètres de compilation",
                 fonction=self._get_compilation_parameters_for_compilation,
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 4- Lecture des métadonnées
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 affichage="Lecture des métadonnées du fichier tex",
                 fonction=self.get_metadata,
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 5- Vérification et changement de l'id unique du document
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 affichage="Vérification de l'id unique du document",
                 fonction=self._check_id_unique,
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 6- Vérification et changement du nom du fichier
             if self.compilation_parameters.get("renommer_automatiquement", False):
-                self._compilation_step(
+                resultat, messages = self._compilation_step(
                     mode_ok=["deep"],
                     affichage="Vérification du nom de fichier",
                     fonction=self._rename_file,
                     compilation_options=compilation_cli_options,
                 )
+                messages_compilation.extend(messages)
 
             # 7- Générer le QRCode
-            self._compilation_step(
+            resultat, messages = self._compilation_step(
                 mode_ok=["deep"],
                 affichage="Génération du QR code du document",
                 fonction=self._generate_qrcode,
                 compilation_options=compilation_cli_options,
             )
+            messages_compilation.extend(messages)
 
             # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
             if self.version == "UPSTI_Document_v2":
-                self._compilation_step(
+                resultat, messages = self._compilation_step(
                     mode_ok=["deep"],
                     affichage="Génération du code latex à partir des métadonnées",
                     fonction=self._generate_latex_template,
                     compilation_options=compilation_cli_options,
                 )
+                messages_compilation.extend(messages)
 
             # 9- Générer le fichier UPSTI_Document_v1 (si UPSTI_Document v2)
             if self.version == "UPSTI_Document_v2":
-                self._compilation_step(
+                resultat, messages = self._compilation_step(
                     affichage=(
                         "Création du fichier tex UPSTI_Document_v1 "
                         "(pour la rétrocompatibilité)"
@@ -258,6 +319,7 @@ class UPSTILatexDocument:
                     fonction=self._generate_UPSTI_Document_v1_tex_file,
                     compilation_options=compilation_cli_options,
                 )
+                messages_compilation.extend(messages)
 
             # Titre intermédiaire
             if compilation_cli_options["verbose"] in ["normal"]:
@@ -265,37 +327,90 @@ class UPSTILatexDocument:
 
             # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
             if compilation_cli_options["mode"] in ["deep", "normal", "quick"]:
-                compilation, messages_compilation = self._compile_tex(
+                resultat_compilation, messages_compilation_tex = self._compile_tex(
                     compilation_options=compilation_cli_options
                 )
+                messages_compilation.extend(messages_compilation_tex)
+
+                if resultat_compilation == "error":
+                    raise CompilationStepError(messages_compilation)
+
+                # Mémoriser le statut de la compilation LaTeX
+                if resultat_compilation == "warning":
+                    statut_compilation = "warning"
 
             # Post-traitements
-            if compilation_cli_options["verbose"] in [
-                "normal"
-            ] and compilation_cli_options["mode"] in ["deep", "normal"]:
-                self.msg.titre2("Post-traitements après compilation")
+            if self.compilation_parameters.get(
+                "copier_pdf_dans_dossier_cible", False
+            ) or self.compilation_parameters.get("upload", False):
+                if compilation_cli_options["verbose"] in [
+                    "normal"
+                ] and compilation_cli_options["mode"] in ["deep", "normal"]:
+                    self.msg.titre2("Post-traitements après compilation")
 
             # 11- Copie des fichiers dans le dossier cible
             if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
-                self._compilation_step(
+                resultat, messages = self._compilation_step(
                     affichage="Copie des fichiers compilés dans le dossier cible",
-                    fonction=self._copy_compiled_files,
+                    fonction=self._copy_files,
                     compilation_options=compilation_cli_options,
                 )
+                messages_compilation.extend(messages)
 
-            # 12- Upload (création du fichier meta, du zip, upload et webhook)
+            # 12- Fin du post traitement
+            compilation_cli_options["dry_run"] = False
+
             if self.compilation_parameters.get("upload", False):
-                self._compilation_step(
-                    fonction=self._upload,
+
+                # 12a- Création du fichier zip des fichiers
+                resultat, messages = self._compilation_step(
+                    affichage="Création du fichier zip",
+                    fonction=self._create_zip,
                     compilation_options=compilation_cli_options,
                 )
+                messages_compilation.extend(messages)
+
+                # 12b- Création du fichier meta à uploader
+                fichier_meta, messages = self._compilation_step(
+                    affichage="Création du fichier de synthèse JSON à uploader",
+                    fonction=self._create_info_file,
+                    compilation_options=compilation_cli_options,
+                )
+                messages_compilation.extend(messages)
+
+                # 12c- Upload des fichiers sur le FTP
+                resultat, messages = self._compilation_step(
+                    affichage="Upload des fichiers sur le FTP",
+                    fonction=lambda: self._upload(
+                        infos=fichier_meta, compilation_options=compilation_cli_options
+                    ),
+                    compilation_options=compilation_cli_options,
+                )
+                messages_compilation.extend(messages)
+
+                # 12d- Webhook
+                resultat, messages = self._compilation_step(
+                    affichage="Déclenchement du webhook",
+                    fonction=self._webhook_call,
+                    compilation_options=compilation_cli_options,
+                )
+                messages_compilation.extend(messages)
 
         # On gère ici les étapes qui intterrompent la compilation
         except CompilationStepError:
-            return None, []
+            return "error", messages_compilation
 
-        # Si on est arrivé ici, c'est que tout s'est bien passé
-        return True, errors
+        # Déterminer le statut final : vérifier à la fois le statut de _compile_tex
+        # et les flags dans tous les messages
+        has_warning = any(
+            isinstance(m, (list, tuple)) and len(m) >= 2 and m[1] == "warning"
+            for m in messages_compilation
+        )
+        if statut_compilation == "warning" or has_warning:
+            return "warning", messages_compilation
+        return "success", messages_compilation
+
+    # --- Gestion des métadonnées ---
 
     def set_metadata(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
         """Ajoute ou modifie une métadonnée dans le document.
@@ -348,6 +463,162 @@ class UPSTILatexDocument:
         """
         return self._get_handler().delete_metadata(key)
 
+    # --- Récupération des données ---
+
+    def get_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Récupère et normalise les métadonnées du document.
+
+        Détecte automatiquement la version (v1/v2/EPB), applique le parser approprié,
+        normalise les données via _format_metadata et met en cache le résultat.
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (metadata_dict, messages) où metadata_dict contient les métadonnées
+            normalisées avec structure {key: {valeur, affichage, initiales, ...}},
+            et messages est une liste de [message, flag] (info/warning/error).
+            Ne lève jamais d'exception.
+        """
+        # Réutiliser le cache si les métadonnées ont déjà été extraites
+        if self._metadata is not None:
+            return self._metadata, []
+
+        # Déléguer le parsing au handler approprié selon la version
+        try:
+            metadata, errors = self._get_handler().parse_metadata()
+        except ValueError as e:
+            # Version non supportée
+            return None, [[str(e), "fatal_error"]]
+
+        if metadata is None:
+            return None, errors
+
+        # Lire le fichier de paramètres de compilation pour override
+        custom_params, custom_errors = self._read_fichier_parametres_compilation()
+        if custom_errors:
+            # Ne garder que les erreurs réelles (pas les "info")
+            errors.extend([e for e in custom_errors if e[1] != "info"])
+
+        # Override des métadonnées si présentes dans le fichier de paramètres
+        if custom_params and "surcharge_metadonnees" in custom_params:
+            override_meta = custom_params["surcharge_metadonnees"]
+            if isinstance(override_meta, dict):
+                # Si metadata est None, initialiser un dict vide
+                if metadata is None:
+                    metadata = {}
+
+                # Merger : ajouter nouvelles clés et remplacer existantes
+                metadata.update(override_meta)
+                errors.append(
+                    [
+                        f"Métadonnées overridées depuis le fichier de paramètres "
+                        "(Métadonnée(s) changée(s) : "
+                        f"{', '.join(list(override_meta.keys()))})",
+                        "info",
+                    ]
+                )
+
+        # Récupérer la version pour _format_metadata
+        version = self._version or self.version
+        formatted, formatted_errors = self._format_metadata(metadata, source=version)
+        if formatted is not None:
+            self._metadata = formatted
+        return formatted, errors + formatted_errors
+
+    def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Récupère les paramètres de compilation du document.
+
+        Charge la configuration centralisée depuis .env, puis fusionne les paramètres
+        locaux si un fichier de paramètres existe dans le même répertoire que le
+        document. Résultat mis en cache.
+
+        Retourne
+        --------
+        tuple[Dict, List[List[str]]]
+            (parametres, messages) où parametres contient les clés :
+            - compiler: bool
+            - versions_a_compiler: list[str]
+            - versions_accessibles_a_compiler: list[str]
+            - est_un_document_a_trous: bool
+            - copier_pdf_dans_dossier_cible: bool
+            - upload: bool
+            - dossier_ftp: str
+            Messages contient warnings/erreurs si fichier local invalide.
+        """
+        # Réutiliser le cache si déjà récupéré
+        if self._compilation_parameters is not None:
+            return self._compilation_parameters, []
+
+        errors: List[List[str]] = []
+
+        # Lire la configuration centralisée
+        cfg = load_config()
+        comp = cfg.compilation
+
+        parametres_compilation = {
+            "compiler": bool(comp.compiler),
+            "renommer_automatiquement": bool(comp.renommer_automatiquement),
+            "versions_a_compiler": list(comp.versions_a_compiler),
+            "versions_accessibles_a_compiler": list(
+                comp.versions_accessibles_a_compiler
+            ),
+            "est_un_document_a_trous": bool(comp.est_un_document_a_trous),
+            "copier_pdf_dans_dossier_cible": bool(comp.copier_pdf_dans_dossier_cible),
+            "upload": bool(comp.upload),
+            "dossier_ftp": str(comp.dossier_ftp),
+        }
+
+        # Vérifier si un fichier de paramètres existe dans le même dossier
+        custom_params, custom_errors = self._read_fichier_parametres_compilation()
+        if custom_errors:
+            errors.extend(custom_errors)
+        if custom_params:
+            parametres_compilation.update(custom_params)
+
+        # Mettre en cache
+        self._compilation_parameters = parametres_compilation
+        return parametres_compilation, errors
+
+    def get_version(
+        self, check_compatibilite: bool = False
+    ) -> tuple[Optional[str], List[List[str]]]:
+        """Retourne la version du document (avec cache).
+
+        Détecte automatiquement le format du document parmi :
+        - UPSTI_Document_v2 (métadonnées YAML)
+        - UPSTI_Document_v1 (métadonnées LaTeX)
+        - EPB_Cours (format non supporté)
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (version, messages) où version est le nom du format détecté ou None.
+            Résultat mis en cache dans self._version.
+        """
+        if self._version is not None:
+            # Version déjà détectée (cache)
+            return self._version, []
+
+        version, errors = self._detect_version()
+
+        if version is None:
+            return None, errors
+
+        # Si demandé, vérifier explicitement la compatibilité de la version
+        if check_compatibilite:
+            if version not in ("UPSTI_Document_v1", "UPSTI_Document_v2"):
+                return None, [
+                    [
+                        f"Les documents {version} ne sont pas pris en charge par "
+                        "pyUPSTIlatex. Il est néanmoins possible de les convertir en "
+                        "utilisant : pyupstilatex migrate.",
+                        "fatal_error",
+                    ]
+                ]
+
+        self._version = version
+        return version, errors
+
     def _get_handler(self) -> DocumentVersionHandler:
         """Retourne le handler approprié selon la version (lazy initialization).
 
@@ -380,6 +651,10 @@ class UPSTILatexDocument:
                 )
 
         return self._handler
+
+    # =========================================================================
+    # MÉTHODES PRIVÉES : ORCHESTRATION DE LA COMPILATION
+    # =========================================================================
 
     def _compilation_step(
         self,
@@ -463,9 +738,10 @@ class UPSTILatexDocument:
             ):
                 messages.append(["OK !", "success"])
 
-            self.msg.affiche_messages(
-                messages, "resultat_item", format_last=format_last_message
-            )
+            if compilation_options["verbose"] in ["normal"]:
+                self.msg.affiche_messages(
+                    messages, "resultat_item", format_last=format_last_message
+                )
 
             # Si resultat est None, c'est une erreur fatale
             if resultat is None:
@@ -774,50 +1050,79 @@ class UPSTILatexDocument:
             ]
 
         # 10. Suppression de tous les vieux fichiers liés (cache, compilés, etc.)
-        if not compilation_options["dry_run"]:
+        messages: List[List[str]] = []
+        deleted_files: List[str] = []
+        failed_deletions: List[List[str]] = []
 
-            import glob
+        parent = chemin_actuel.parent
+        build_dir = parent / cfg.compilation.dossier_compilation_latex
 
-            # TOCHK : il faudra peut-être simplement supprimer le fichier "compiled"
-            # créé lors de la compilation latex
-
-            deleted_files: List[str] = []
-            failed_deletions: List[List[str]] = []
+        if build_dir.exists() and build_dir.is_dir():
             try:
-                parent = chemin_actuel.parent
-                pattern = glob.escape(chemin_actuel.stem) + "*"
-
-                for p in parent.glob(pattern):
-                    # éviter de toucher le nouveau fichier
-                    try:
-                        if p.resolve() == self.file.path.resolve():
-                            continue
-                    except Exception:
-                        pass
-
-                    if p.is_file():
-                        try:
-                            p.unlink()
-                            deleted_files.append(str(p.name))
-                        except Exception as e:
-                            failed_deletions.append(
-                                [f"Échec suppression {p.name}: {e}", "warning"]
-                            )
+                if not compilation_options.get("dry_run", False):
+                    shutil.rmtree(build_dir)
+                deleted_files.append(str(build_dir.name))
             except Exception as e:
                 failed_deletions.append(
                     [
-                        f"Erreur lors de la suppression des fichiers liés: {e}",
+                        "Erreur lors de la tentative de suppression du dossier "
+                        f"{build_dir} : {e}",
                         "warning",
                     ]
                 )
 
-            messages: List[List[str]] = []
-            messages.extend(failed_deletions)
-            messages.append(
-                [f"Le fichier a été renommé : {nouveau_chemin.name}", "info"]
-            )
+        pattern = glob.escape(chemin_actuel.stem) + "*"
+        for p in parent.glob(pattern):
+            # éviter de toucher le nouveau fichier
+            try:
+                if p.resolve() == self.file.path.resolve():
+                    continue
+            except Exception:
+                pass
 
+            if p.is_file():
+                try:
+                    if not compilation_options["dry_run"]:
+                        p.unlink()
+                    deleted_files.append(str(p.name))
+                except Exception as e:
+                    failed_deletions.append(
+                        [f"Échec suppression {p.name}: {e}", "warning"]
+                    )
+
+        messages.extend(failed_deletions)
+
+        # 11. Renommer tous les pdf du dossier cible si besoin
+        if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
+            try:
+                dossier_cible = (
+                    self.file.parent
+                    / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+                )
+                prefix_old, prefix_new = chemin_actuel.stem, nouveau_chemin.stem
+
+                for fichier in dossier_cible.iterdir():
+                    if fichier.is_file() and fichier.name.startswith(prefix_old):
+                        nouveau_nom = prefix_new + fichier.name[len(prefix_old) :]
+                        nouveau_fichier = dossier_cible / nouveau_nom
+
+                        if not nouveau_fichier.exists():
+                            if not compilation_options.get("dry_run", False):
+                                fichier.rename(nouveau_fichier)
+
+            except Exception as e:
+                messages.append(
+                    [
+                        "Erreur lors du renommage des fichiers dans le dossier "
+                        f"cible : {e}",
+                        "warning",
+                    ]
+                )
+
+        messages.append([f"Le fichier a été renommé : {nouveau_chemin.name}", "info"])
         return str(nouveau_chemin), messages
+
+    # --- Génération de fichiers annexes ---
 
     def _generate_qrcode(
         self, compilation_options: dict
@@ -937,7 +1242,7 @@ class UPSTILatexDocument:
                     "L'id unique a été modifié dans le fichier : "
                     f"{id_unique_initiale} -> {id_unique}"
                 )
-                flag = "warning"
+                flag = "info"
                 etat_id_unique = "changed"
                 valeur_id_unique = id_unique
 
@@ -970,7 +1275,7 @@ class UPSTILatexDocument:
                     f"L'id unique n'était pas dans le bon format ({id_unique}). "
                     f"Il a été corrigé: {nouvel_id_unique}"
                 )
-                flag = "warning"
+                flag = "info"
                 etat_id_unique = "changed"
                 valeur_id_unique = nouvel_id_unique
 
@@ -1026,27 +1331,18 @@ class UPSTILatexDocument:
             (result, messages) où result contient le nom du fichier tex
             généré, et messages est une liste de [message, flag].
         """
-        # TOCHK : au moment où on réfléchira à la p
-        versions_accessibles = {
-            "dys": {
-                "affichage": "dys",
-                "suffixe": "-dys",
-            },
-            "dv": {
-                "affichage": "déficients visuels",
-                "suffixe": "-dv",
-            },
-        }
 
-        if code not in versions_accessibles:
+        if code not in VERSIONS_ACCESSIBLES_DISPONIBLES:
             return None, [[f"Version accessible inconnue : {code}", "warning"]]
         else:
             nom_fichier_accessible = (
-                self.file.stem + versions_accessibles[code]["suffixe"]
+                self.file.stem + VERSIONS_ACCESSIBLES_DISPONIBLES[code]["suffixe"]
             )
             fichier_accessible = {
                 "nom": nom_fichier_accessible,
-                "suffixe_affichage": versions_accessibles[code]["affichage"],
+                "suffixe_affichage": VERSIONS_ACCESSIBLES_DISPONIBLES[code][
+                    "affichage"
+                ],
             }
 
             # Créer physiquement le fichier .tex pour la version accessible
@@ -1054,6 +1350,7 @@ class UPSTILatexDocument:
 
             #
             # TODO : modifier le fichier en dur ! En passant par le handler ?
+            # Ou par accessibilite.py ?
             #
 
             if not compilation_options["dry_run"]:
@@ -1071,6 +1368,8 @@ class UPSTILatexDocument:
 
             return fichier_accessible, []
 
+    # --- Compilation LaTeX ---
+
     def _compile_tex(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
@@ -1083,9 +1382,11 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
 
-        self.msg.info(
-            "Préparation de la compilation (environnement et fichiers à compiler)"
-        )
+        if compilation_options["verbose"] in ["normal"]:
+            self.msg.info(
+                "Préparation de la compilation (environnement et fichiers à compiler)"
+            )
+
         import subprocess
 
         try:
@@ -1202,86 +1503,128 @@ class UPSTILatexDocument:
         build_dir = cfg.compilation.dossier_compilation_latex
         output_dir = self.file.parent
 
-        for fic in compilation_job_list:
+        # Pour savoir si on doit faire une compilation bibtex
+        has_bibliographie = bool(
+            self._metadata.get("bibliographie", {}).get("valeur", [])
+        )
 
-            self.msg.info(f"Compilation de la version {fic['affichage_nom_version']}")
-            #
-            # CONTINUE : faire la compilation de chaque fichier, et la génération des fichiers accessibles
-            # penser au dry_mode, et pour l'isntant, simplement copier le fichier en changeant le nom
-            #
+        compilation_messages: List[List[str]] = []
+        for i, fic in enumerate(compilation_job_list):
 
-            # # Créer le dossier de sortie s'il n'existe pas
-            # os.makedirs(outdir, exist_ok=True)
+            # Dossiers de sorties
             nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
             build_dir_path = output_dir / build_dir
 
-            # Créer build_dir_path s'il n'existe pas (sauf en dry_run)
-            # if not compilation_options["dry_run"]:
-            #     build_dir_path.mkdir(parents=True, exist_ok=True)
-
-            #     # Wrapper LaTeX temporaire
-            #     wrapper_path = output_dir / "en_cours_de_compilation.tex"
-            #     wrapper_content = (
-            #         rf"\def\ChoixDeVersion{{{fic['option']}}}"
-            #         "\n"
-            #         rf"\input{{{nom_fichier_tex_path.as_posix()}}}"
-            #     )
-            #     wrapper_path.write_text(wrapper_content, encoding="utf-8")
-
-            # C'est là qu'on fait la vraie compilation
-            for i in range(1, nombre_compilations + 1):
-
-                # command = [
-                #     "latexmk",
-                #     "-pdf",
-                #     "-synctex=1",
-                #     "-interaction=nonstopmode",
-                #     f"-jobname={fic['job_name']}",
-                #     f"-outdir={build_dir_path}",
-                #     f"{wrapper_path.as_posix()}",
-                # ]
-                command = [
-                    "pdflatex",
-                    "-quiet",
-                    "-synctex=1",
-                    "-interaction=nonstopmode",
-                    f"-job-name={fic['job_name']}",
-                    f"-output-directory={build_dir_path}",
-                    f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
-                ]
-                subprocess.run(command, check=True, cwd=output_dir)
-
-            # --- nettoyage optionnel du wrapper ---
-            # if not compilation_options["dry_run"]:
-            #     wrapper_path.unlink(missing_ok=True)
-
-            #
-            # CONTINUE : refaire un essai avec latexmk (qui tourne en boucle... faire un essai avec une simple compilation)
-            # Finir la gestion des messages et des erreurs
-            #
-
-            '''
-            message = (
-                "Compilation de la version "
-                + version_document["nom_version"]
-                + "."
+            # Pour savoir si on doit faire une compilation bibtex
+            compile_bibtex = (
+                has_bibliographie
+                and i == 0
+                and compilation_options.get("mode") == "deep"
             )
-            if i > 1:
-                message = message.rstrip(".") + (f" (#{i}).")
-            self.environnement.affiche_message(
-                {
-                    "texte": message,
-                    "type": "info",
-                    "verbose": options["verbose"],
-                }
+            nombre_compilations_corrige = (
+                nombre_compilations + 2
+                if (compile_bibtex and i == 0)
+                else nombre_compilations
             )
-            os.system(commande)
-            '''
 
-        # On compile le fichier LaTeX (pdflatex, xelatex, lualatex, etc.)
-        return "N.I", [["Non implémenté.", "info"]]
+            # Démarrage de la compilation
+            compilation_OK: bool = True
+            passe_compilation = 1
+            while compilation_OK and passe_compilation <= nombre_compilations_corrige:
 
-    def _copy_compiled_files(self) -> tuple[Optional[Dict], List[List[str]]]:
+                # Affichage de la passe de compilation
+                affiche_passe = (
+                    passe_compilation - 1
+                    if compile_bibtex and passe_compilation > 2
+                    else passe_compilation
+                )
+                if compilation_options["verbose"] in ["normal"]:
+                    if compile_bibtex and passe_compilation == 2:
+                        affichage_nom_fichier_dans_message = (
+                            "Compilation de la bibliographie (passe bibtex)"
+                        )
+                    else:
+                        affichage_nom_fichier_dans_message = (
+                            f"Compilation de la version {fic['affichage_nom_version']}"
+                        )
+                        if nombre_compilations > 1:
+                            affichage_nom_fichier_dans_message += (
+                                f" (passe n°{affiche_passe})"
+                            )
+                    self.msg.info(affichage_nom_fichier_dans_message)
+
+                if compile_bibtex and passe_compilation == 2:
+                    cwd_dir = build_dir_path
+                    command = [
+                        "bibtex",
+                        "-quiet",
+                        nom_fichier_tex_path.stem,
+                    ]
+                else:
+                    cwd_dir = output_dir
+                    command = [
+                        "pdflatex",
+                        "-quiet",
+                        "-synctex=1",
+                        "-interaction=nonstopmode",
+                        f"-job-name={fic['job_name']}",
+                        f"-output-directory={build_dir_path}",
+                        f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
+                    ]
+                try:
+                    if not compilation_options["dry_run"]:
+                        subprocess.run(
+                            command,
+                            check=True,
+                            cwd=cwd_dir,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+
+                    # Ajout du nom de fichier à la liste des fichiers compilés
+                    if passe_compilation == 1:
+                        pdf_compiled_path = build_dir_path / f"{fic['job_name']}.pdf"
+                        self._liste_fichiers["compiled"].append(pdf_compiled_path)
+
+                    # Affichage de la confirmation si nécessaire
+                    if affiche_details and compilation_options["verbose"] in ["normal"]:
+                        self.msg.affiche_messages(
+                            [["OK !", "success"]], "resultat_item"
+                        )
+
+                except subprocess.CalledProcessError:
+                    message_erreur_compilation = [
+                        "Erreur lors de la compilation LaTeX de la version "
+                        f"{fic['affichage_nom_version']}",
+                        "error",
+                    ]
+                    if compilation_options["verbose"] in ["normal"]:
+                        self.msg.affiche_messages(
+                            [message_erreur_compilation], "resultat_item"
+                        )
+                    compilation_messages.append(message_erreur_compilation)
+                    compilation_OK = False
+
+                # On prépare la prochaine passe de compilation si nécessaire
+                passe_compilation += 1
+
+        # Conclusion de la phase de compilation
+        nb_fichiers_compiles = len(self._liste_fichiers["compiled"])
+        nb_fichiers_a_compiler = len(compilation_job_list)
+
+        if nb_fichiers_compiles == 0:
+            return "error", [["Échec de la compilation LaTeX", "fatal_error"]]
+        if nb_fichiers_compiles < nb_fichiers_a_compiler:
+            return "warning", [
+                ["Certaines versions n'ont pas pu être compilées", "warning"]
+            ]
+        return "success", []
+
+    # --- Post-traitements ---
+
+    def _copy_files(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Copie les fichiers compilés dans le dossier cible (méthode interne).
 
         Retourne
@@ -1290,10 +1633,256 @@ class UPSTILatexDocument:
             (result, messages) où result contient des informations sur la copie,
             et messages est une liste de [message, flag].
         """
-        # On copie les fichiers compilés dans le dossier cible
-        return "N.I", [["Non implémenté.", "info"]]
+        messages: List[List[str]] = []
 
-    def _upload(self) -> tuple[Optional[Dict], List[List[str]]]:
+        # Chargement de la configuration
+        cfg = load_config()
+        dest_folder = (
+            self.file.parent / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+        )
+
+        # On génère d'abord le fichier version si nécessaire
+        if bool(cfg.compilation.copier_fichier_version):
+            fichier_version_pattern = cfg.compilation.format_nom_fichier_version
+            version = self._metadata.get("version", {}).get("valeur", "XXXX")
+            nom_fichier_version = fichier_version_pattern.replace(
+                "[numero_version]", version
+            )
+
+            # Nettoyage de l'ancien fichier version
+            if not compilation_options["dry_run"]:
+                try:
+                    fichier_version_start, fichier_version_end = (
+                        fichier_version_pattern.split("[numero_version]")
+                    )
+                    for fichier_path in dest_folder.iterdir():
+                        if (
+                            fichier_path.is_file()
+                            and fichier_path.name.startswith(fichier_version_start)
+                            and fichier_path.name.endswith(fichier_version_end)
+                        ):
+                            fichier_path.unlink()
+                except Exception as e:
+                    messages.append(
+                        [
+                            "Erreur lors du nettoyage des anciens fichiers de "
+                            f"version : {e}",
+                            "warning",
+                        ]
+                    )
+
+            # Création du nouveau fichier version
+            if not compilation_options["dry_run"]:
+                try:
+                    fichier_version = dest_folder / nom_fichier_version
+                    if not fichier_version.exists():
+                        fichier_version.touch()
+                except Exception as e:
+                    messages.append(
+                        [
+                            "Erreur lors de la création du fichier de version : "
+                            f"{e}",
+                            "warning",
+                        ]
+                    )
+
+        # Copie des fichiers compilés
+        if not compilation_options["dry_run"]:
+            for fichier_path in self._liste_fichiers.get("compiled", []):
+                try:
+                    shutil.copy(fichier_path, dest_folder)
+                except Exception as e:
+                    messages.append(
+                        [
+                            f"Erreur lors de la copie de {fichier_path.name} : {e}",
+                            "warning",
+                        ]
+                    )
+
+        # On copie les fichiers compilés dans le dossier cible
+        return "success", messages
+
+    def _create_zip(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Création du fichier zip
+
+        Retourne
+        --------
+        tuple[Optional[Path], List[List[str]]]
+            (result, messages) où result contient le Path du fichier zip créé,
+            et messages est une liste de [message, flag].
+        """
+        # Chargement de la configuration
+        cfg = load_config()
+        zip_tmp_folder = self.file.parent / cfg.compilation.dossier_tmp_pour_zip
+
+        try:
+            # Création du dossier temporaire
+            if not compilation_options["dry_run"]:
+                zip_tmp_folder.mkdir(parents=True, exist_ok=True)
+
+            # Copie du fichier tex dans le dossier temporaire
+            fichier_source = self.file.path
+            fichier_cible = zip_tmp_folder / fichier_source.name
+            if not compilation_options["dry_run"]:
+                shutil.copy2(fichier_source, fichier_cible)
+
+            # Copie du dossier sources dans le dossier temporaire
+            dossier_source = self.file.parent / cfg.compilation.dossier_sources_latex
+            dossier_cible = zip_tmp_folder / cfg.compilation.dossier_sources_latex
+            if not compilation_options["dry_run"]:
+                shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
+
+            # Création du fichier zip
+            nom_fichier_zip = self.file.parent / (
+                str(self.file.stem) + cfg.compilation.suffixe_nom_sources
+            )
+            if not compilation_options["dry_run"]:
+                fichier_zip = Path(
+                    shutil.make_archive(
+                        nom_fichier_zip.as_posix(), 'zip', zip_tmp_folder.as_posix()
+                    )
+                )
+
+            self._liste_fichiers["autres"].append(fichier_zip)
+
+            # Suppression du dossier temporaire
+            if not compilation_options["dry_run"]:
+                shutil.rmtree(zip_tmp_folder.as_posix())
+
+        except Exception as e:
+            return None, [
+                [f"Erreur lors de la création du zip des fichiers : {e}", "warning"]
+            ]
+
+        return "success", []
+
+    def _create_info_file(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Création du fichier info
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur la création du
+            fichier info,
+            et messages est une liste de [message, flag].
+        """
+        messages: List[List[str]] = []
+
+        # Chargement de la configuration
+        cfg = load_config()
+
+        # On vérifie d'abord si on doit aussi uploader un diaporama
+        diaporama_folder = (
+            self.file.parent / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+        )
+        liste_extensions_diaporama = cfg.compilation.extensions_diaporama
+        nom_fichier_diaporama = self.file.stem + cfg.compilation.suffixe_nom_diaporama
+
+        # Chercher les fichiers correspondants
+        try:
+            fichiers_diaporama = [
+                f
+                for f in diaporama_folder.iterdir()
+                if f.is_file()
+                and f.name.startswith(nom_fichier_diaporama)
+                and f.suffix in liste_extensions_diaporama
+            ]
+            for diaporama in fichiers_diaporama:
+                self._liste_fichiers["autres"].append(Path(diaporama))
+
+        except Exception as e:
+            messages.append(
+                [f"Erreur lors de la recherche des fichiers diaporama : {e}", "warning"]
+            )
+
+        # Création du fichier info
+        info_file = self.file.parent / (
+            str(self.file.stem) + cfg.compilation.extension_fichier_infos_upload
+        )
+
+        if cfg.compilation.copier_pdf_dans_dossier_cible:
+            local_path = (
+                self.file.parent
+                / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+            )
+        else:
+            local_path = self.file.parent
+
+        compiled_files = [str(f.name) for f in self._liste_fichiers.get("compiled", [])]
+        other_files = [str(f.name) for f in self._liste_fichiers.get("autres", [])]
+        other_files.append(info_file.name)
+
+        # Ajout d'un hash pour la sécurité FTP
+        import hashlib
+        import hmac
+
+        secret_key = bytes(cfg.ftp.secret_key, 'utf-8')
+        passkey = f"{self._metadata.get('id_unique', {}).get('valeur', '')}".encode()
+        hash_passkey = hmac.new(secret_key, passkey, hashlib.sha256).hexdigest()
+
+        # Contenu du fichier info
+        info_file_content = {
+            "key_hash": hash_passkey,
+            "metadata": self._metadata,
+            "compilation_parameters": self._compilation_parameters,
+            "compiled_files": compiled_files,
+            "other_files": other_files,
+            "local_path": local_path.resolve().as_posix(),
+        }
+
+        # Enregistrement du fichier info
+        try:
+            if not compilation_options["dry_run"]:
+                import json
+
+                with open(info_file, "w", encoding="utf-8") as f:
+                    json.dump(info_file_content, f, ensure_ascii=False, indent=4)
+
+        except Exception as e:
+            messages.append(
+                [f"Erreur lors de la création du fichier info : {e}", "warning"]
+            )
+            return None, messages
+
+        return info_file, messages
+
+    def _upload(
+        self, infos: Optional[Path], compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Upload les fichiers compilés via FTP.
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur l'upload,
+            et messages est une liste de [message, flag].
+        """
+
+        # Chargement de la configuration
+        cfg = load_config()
+
+        if infos is None:
+            return None, [["Upload impossible : aucun fichier infos fourni", "warning"]]
+
+        # Sinon, infos est un Path
+        if infos.exists():
+
+            # 1. Vérification de la connexion FTP
+            # 2. Récupération de la liste des fichiers dans le json
+            # 3. Upload des fichiers via FTP
+            # 4 Nettoyage des fichiers temporaires (sources, infos)
+
+            pass
+
+        return "success", []
+
+    def _webhook_call(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Upload les fichiers compilés via FTP/Webhook (méthode interne).
 
         Retourne
@@ -1302,166 +1891,53 @@ class UPSTILatexDocument:
             (result, messages) où result contient des informations sur l'upload,
             et messages est une liste de [message, flag].
         """
-        # On crée le zip, le fichier meta, et on upload via FTP/Webhook
-        # Il faut mettre les meta, les parametres de config et la liste
-        # des fichiers uploadés dans le fichier json/yaml meta
-        # Dans le fichier meta, on stockera aussi le dossier local
-
-        return "N.I", [["Non implémenté.", "info"]]
-
-    def get_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Récupère et normalise les métadonnées du document.
-
-        Détecte automatiquement la version (v1/v2/EPB), applique le parser approprié,
-        normalise les données via _format_metadata et met en cache le résultat.
-
-        Retourne
-        --------
-        tuple[Optional[Dict], List[List[str]]]
-            (metadata_dict, messages) où metadata_dict contient les métadonnées
-            normalisées avec structure {key: {valeur, affichage, initiales, ...}},
-            et messages est une liste de [message, flag] (info/warning/error).
-            Ne lève jamais d'exception.
-        """
-        # Réutiliser le cache si les métadonnées ont déjà été extraites
-        if self._metadata is not None:
-            return self._metadata, []
-
-        # Déléguer le parsing au handler approprié selon la version
-        try:
-            metadata, errors = self._get_handler().parse_metadata()
-        except ValueError as e:
-            # Version non supportée
-            return None, [[str(e), "fatal_error"]]
-
-        if metadata is None:
-            return None, errors
-
-        # Lire le fichier de paramètres de compilation pour override
-        custom_params, custom_errors = self._read_fichier_parametres_compilation()
-        if custom_errors:
-            # Ne garder que les erreurs réelles (pas les "info")
-            errors.extend([e for e in custom_errors if e[1] != "info"])
-
-        # Override des métadonnées si présentes dans le fichier de paramètres
-        if custom_params and "surcharge_metadonnees" in custom_params:
-            override_meta = custom_params["surcharge_metadonnees"]
-            if isinstance(override_meta, dict):
-                # Si metadata est None, initialiser un dict vide
-                if metadata is None:
-                    metadata = {}
-
-                # Merger : ajouter nouvelles clés et remplacer existantes
-                metadata.update(override_meta)
-                errors.append(
-                    [
-                        f"Métadonnées overridées depuis le fichier de paramètres "
-                        "(Métadonnée(s) changée(s) : "
-                        f"{', '.join(list(override_meta.keys()))})",
-                        "info",
-                    ]
-                )
-
-        # Récupérer la version pour _format_metadata
-        version = self._version or self.version
-        formatted, formatted_errors = self._format_metadata(metadata, source=version)
-        if formatted is not None:
-            self._metadata = formatted
-        return formatted, errors + formatted_errors
-
-    def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Récupère les paramètres de compilation du document.
-
-        Charge la configuration centralisée depuis .env, puis fusionne les paramètres
-        locaux si un fichier de paramètres existe dans le même répertoire que le
-        document. Résultat mis en cache.
-
-        Retourne
-        --------
-        tuple[Dict, List[List[str]]]
-            (parametres, messages) où parametres contient les clés :
-            - compiler: bool
-            - versions_a_compiler: list[str]
-            - versions_accessibles_a_compiler: list[str]
-            - est_un_document_a_trous: bool
-            - copier_pdf_dans_dossier_cible: bool
-            - upload: bool
-            - dossier_ftp: str
-            Messages contient warnings/erreurs si fichier local invalide.
-        """
-        # Réutiliser le cache si déjà récupéré
-        if self._compilation_parameters is not None:
-            return self._compilation_parameters, []
-
-        errors: List[List[str]] = []
-
-        # Lire la configuration centralisée
+        # Chargement de la configuration
         cfg = load_config()
-        comp = cfg.compilation
 
-        parametres_compilation = {
-            "compiler": bool(comp.compiler),
-            "renommer_automatiquement": bool(comp.renommer_automatiquement),
-            "versions_a_compiler": list(comp.versions_a_compiler),
-            "versions_accessibles_a_compiler": list(
-                comp.versions_accessibles_a_compiler
-            ),
-            "est_un_document_a_trous": bool(comp.est_un_document_a_trous),
-            "copier_pdf_dans_dossier_cible": bool(comp.copier_pdf_dans_dossier_cible),
-            "upload": bool(comp.upload),
-            "dossier_ftp": str(comp.dossier_ftp),
-        }
+        # try:
+        #     # Création du dossier temporaire
+        #     if not compilation_options["dry_run"] or True:
+        #         zip_tmp_folder.mkdir(parents=True, exist_ok=True)
 
-        # Vérifier si un fichier de paramètres existe dans le même dossier
-        custom_params, custom_errors = self._read_fichier_parametres_compilation()
-        if custom_errors:
-            errors.extend(custom_errors)
-        if custom_params:
-            parametres_compilation.update(custom_params)
+        #     # Copie du fichier tex dans le dossier temporaire
+        #     fichier_source = self.file.path
+        #     fichier_cible = zip_tmp_folder / fichier_source.name
+        #     if not compilation_options["dry_run"] or True:
+        #         shutil.copy2(fichier_source, fichier_cible)
 
-        # Mettre en cache
-        self._compilation_parameters = parametres_compilation
-        return parametres_compilation, errors
+        #     # Copie du dossier sources dans le dossier temporaire
+        #     dossier_source = self.file.parent / cfg.compilation.dossier_sources_latex
+        #     dossier_cible = zip_tmp_folder / cfg.compilation.dossier_sources_latex
+        #     if not compilation_options["dry_run"] or True:
+        #         shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
 
-    def get_version(
-        self, check_compatibilite: bool = False
-    ) -> tuple[Optional[str], List[List[str]]]:
-        """Retourne la version du document (avec cache).
+        #     # Création du fichier zip
+        #     nom_fichier_zip = self.file.parent / (
+        #         str(self.file.stem) + cfg.compilation.suffixe_nom_sources
+        #     )
+        #     if not compilation_options["dry_run"] or True:
+        #         fichier_zip = Path(
+        #             shutil.make_archive(
+        #                 nom_fichier_zip.as_posix(), 'zip', zip_tmp_folder.as_posix()
+        #             )
+        #         )
 
-        Détecte automatiquement le format du document parmi :
-        - UPSTI_Document_v2 (métadonnées YAML)
-        - UPSTI_Document_v1 (métadonnées LaTeX)
-        - EPB_Cours (format non supporté)
+        #     self._liste_fichiers["autres"].append(fichier_zip)
 
-        Retourne
-        --------
-        tuple[Optional[str], List[List[str]]]
-            (version, messages) où version est le nom du format détecté ou None.
-            Résultat mis en cache dans self._version.
-        """
-        if self._version is not None:
-            # Version déjà détectée (cache)
-            return self._version, []
+        #     # Suppression du dossier temporaire
+        #     if not compilation_options["dry_run"] or True:
+        #         shutil.rmtree(zip_tmp_folder.as_posix())
 
-        version, errors = self._detect_version()
+        # except Exception as e:
+        #     return None, [
+        #         [f"Erreur lors de la création du zip des fichiers : {e}", "warning"]
+        #     ]
 
-        if version is None:
-            return None, errors
+        return "success", []
 
-        # Si demandé, vérifier explicitement la compatibilité de la version
-        if check_compatibilite:
-            if version not in ("UPSTI_Document_v1", "UPSTI_Document_v2"):
-                return None, [
-                    [
-                        f"Les documents {version} ne sont pas pris en charge par "
-                        "pyUPSTIlatex. Il est néanmoins possible de les convertir en "
-                        "utilisant : pyupstilatex migrate.",
-                        "fatal_error",
-                    ]
-                ]
-
-        self._version = version
-        return version, errors
+    # =========================================================================
+    # MÉTHODES PRIVÉES : HELPERS ET UTILITAIRES
+    # =========================================================================
 
     def _read_fichier_parametres_compilation(
         self, fichier_path: Optional[Path] = None
