@@ -4,7 +4,7 @@ import click
 
 from .config import load_config
 from .document import UPSTILatexDocument
-from .file_helpers import format_documents_for_display, scan_for_documents
+from .file_helpers import format_nom_documents_for_display, scan_for_documents
 from .logger import (
     COLOR_DARK_GRAY,
     COLOR_GREEN,
@@ -248,8 +248,8 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
         msg.info("Aucun document trouvé.", flag="warning")
     else:
         # Préparer les chemins d'affichage (tronqués) puis calculer les largeurs
-        # format_documents_for_display ajoute la clé 'display_path' en place.
-        format_documents_for_display(documents)
+        # format_nom_documents_for_display ajoute la clé 'display_path' en place.
+        format_nom_documents_for_display(documents)
         display_key = "path" if show_full_path else "display_path"
         max_path = max(len(d[display_key]) for d in documents)
         max_version = max(len(d["version"]) for d in documents)
@@ -486,11 +486,27 @@ def compile(ctx, path, mode, dry_run):
         return _exit_with_separator(ctx, msg)
 
 
-@main.command(name="poly-td")
+@main.command(name="poly")
 @click.argument("path", type=click.Path())
+@click.option(
+    "--type",
+    "-t",
+    "poly_type",
+    type=click.Choice(["td", "colle", "tp"]),
+    default="td",
+    show_default=True,
+    help="Type de poly: td (défaut), colle, tp",
+)
 @click.pass_context
-def poly_td(ctx, path):
-    """Créé un poly de TD ou le fichier YAML pour le créer."""
+def poly(ctx, path, poly_type):
+    """Créé un poly à partir de plusieurs fichiers ou le fichier YAML pour le créer."""
+
+    # Pour l'affichage
+    type_affichage = {
+        "td": "TD",
+        "colle": "Colle",
+        "tp": "TP",
+    }
 
     from pathlib import Path
 
@@ -503,7 +519,7 @@ def poly_td(ctx, path):
 
     # Cas où le chemin fourni est invalide
     if not chemin.exists():
-        msg.titre1("CRÉATION DU POLY DE TD")
+        msg.titre1(f"CRÉATION DU POLY DE {type_affichage.get(poly_type, '')}")
         msg.info(f"Fichier ou dossier introuvable : {chemin}", flag="error")
         return _exit_with_separator(ctx, msg)
 
@@ -513,22 +529,32 @@ def poly_td(ctx, path):
 
         from .file_helpers import create_yaml_for_poly
 
-        resultat, messages = create_yaml_for_poly(chemin, msg)
+        resultat, messages = create_yaml_for_poly(chemin, poly_type, msg)
 
-        if not resultat:
+        if resultat:
+            messages.append(["Le fichier YAML a été créé avec succès", "success"])
+        else:
             messages.append(["Le fichier YAML n'a pu être créé", "fatal_error"])
-            return _exit_with_messages(ctx, msg, messages, separator_before=True)
+
+        return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
     # Cas où on a un fichier unique
     elif chemin.is_file():
-        msg.titre1("CRÉATION DU POLY DE TD à partir du fichier YAML")
+        msg.titre1("CRÉATION DU POLY à partir du fichier YAML")
         if chemin.name != nom_fichier_yaml:
             msg.info(f"Fichier non pris en charge : {chemin.name}", flag="error")
             return _exit_with_separator(ctx, msg)
         else:
-            from .file_helpers import create_poly_td
+            from .file_helpers import create_poly
 
-            resultat, messages = create_poly_td(chemin, msg)
+            resultat, messages = create_poly(chemin, msg)
+
+            if resultat:
+                messages.append(["Le poly a été créé avec succès", "success"])
+            else:
+                messages.append(["Le poly n'a pu être créé", "fatal_error"])
+
+            return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
     return _exit_with_separator(ctx, msg)
 

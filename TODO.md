@@ -10,6 +10,7 @@
 - Paramètres
   - Prévoir un fichier pyUPSTIlatex-custom.json
   - Prévoir aussi une classe UPSTILatexDocumentCustom
+  - Prévoir un override de templates
 
 ## upsti-latex
 

@@ -2,6 +2,7 @@
 #######################################################################################
 # pyUPSTIlatex - Configuration pour la compilation rapide des fichiers tex
 #--------------------------------------------------------------------------------------
+# https://s2i.bigeard.me/pyupstilatex
 # Emmanuel Bigeard - s2i@bigeard.me
 #--------------------------------------------------------------------------------------
 # Les options de compilation des fichiers tex sont définies par défaut dans le fichier
@@ -11,22 +12,38 @@
 # tex à compiler, les valeurs définies ici écraseront les valeurs par défaut du fichier
 # .env (pour le fichier tex de ce dossier uniquement).
 #######################################################################################
+
+# Si on doit compiler ou ignorer ce document
 compiler: true
+
+# Si on doit renommer automatiquement le fichier en fonction des métadonnées
 renommer_automatiquement: true
+
+# Si on a un document "à trous" (pour lequel 2 versions doivent être compilées)
+est_un_document_a_trous: true
+
+# Versions à compiler
 versions:
   - prof
   - eleve
+
+# Version accessibles à compiler (dys, dv...)
 versions_accessibles:
   - dys
   - dv
-est_un_document_a_trous: true
+
+# Si on doit copier le PDF généré dans un dossier cible après compilation
 copier_pdf_dans_dossier_cible: true
+
+# Si on doit uploader les fichiers sur un serveur FTP (+ options)
 upload: true
 upload_diaporama: true
 dossier_ftp: "/test/"
 
+# Surcharge des métadonnées du document
 surcharge_metadonnees:
   # Ici, on peut surcharger les métadonnées du document
+
 #######################################################################################
 # NOTE : si ce fichier est absent dans un dossier contenant un fichier tex à compiler,
 #        les valeurs par défaut seront appliquées.

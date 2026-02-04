@@ -1,0 +1,56 @@
+---
+#######################################################################################
+# pyUPSTIlatex - Configuration pour la génération d'un poly de {{ poly_type_display }}
+#--------------------------------------------------------------------------------------
+# Emmanuel Bigeard - s2i@bigeard.me
+# https://s2i.bigeard.me/pyupstilatex
+#--------------------------------------------------------------------------------------
+#  - Vous pouvez modifier ce fichier comme vous le souhaitez.
+#  - L'ordre des documents et des sections dans le poly sera l'ordre défini dans ce
+#    fichier.
+#  - Les chemins relatifs sont définis par rapport à ce fichier YAML.
+#######################################################################################
+
+# Type de document
+type_document: {{ type_document }}
+
+# Version LaTeX utilisée
+version_latex: {{ version_latex }}
+
+# Informations du chapitre
+nom_chapitre: {{ nom_chapitre }}
+
+# Logo de la page de garde
+logo: {{ logo }}
+
+# Classe et filière
+classe: {{ classe }}
+filiere: {{ filiere }}
+
+# Variante du document
+variante: {{ variante }}
+
+# Versions accessibles à compiler
+versions_accessibles:
+{% for version in versions_accessibles %}
+  - {{ version }}
+{% endfor %}
+
+# Version du poly
+version: "{{ version }}"
+
+# Fichiers organisés par sections
+fichiers:
+{% for key, section in fichiers.items() %}
+  - section: {{ section.dossier }}
+    liste:
+{% for fichier in section.liste %}
+      - {{ fichier }}
+{% endfor %}
+{% endfor %}
+
+# Compétences couvertes
+competences:
+{% for competence in competences %}
+  - {{ competence }}
+{% endfor %}

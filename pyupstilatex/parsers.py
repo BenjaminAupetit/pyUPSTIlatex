@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import regex as re
 import yaml
 
+from .config import load_config
 from .file_helpers import read_json_config
 
 
@@ -235,8 +236,8 @@ def parse_metadata_tex(
 
     # Cas particulier de la filière
     if "competences" in result:
-        default_classe = "PT"
-        default_filiere = "PTSI-PT"
+        global_cfg = load_config()
+        default_classe = global_cfg.meta.classe
 
         classe = result.get("classe", default_classe)
         filiere = None
@@ -252,7 +253,16 @@ def parse_metadata_tex(
         cfg = cfg or {}
         classe_cfg = cfg.get("classe") or {}
         filiere_cfg = cfg.get("filiere") or {}
-        filiere = classe_cfg.get(classe, {}).get("filiere") or default_filiere
+
+        default_filiere = classe_cfg.get(default_classe, {}).get("filiere")
+
+        # Si filiere pas été trouvée dans le dict classe, la chercher dans classe_cfg
+        if not filiere:
+            filiere = (
+                classe_cfg.get(classe, {}).get("filiere")
+                or default_filiere
+                or "Erreur filière inconnue"
+            )
 
         # Déterminer le programme : soit depuis result["programme"],
         # soit le dernier programme de la filière

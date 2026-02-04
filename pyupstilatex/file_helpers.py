@@ -1,11 +1,47 @@
 import fnmatch
 import json
 import os
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
+
 from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
+
+
+def get_template_env() -> Environment:
+    """Retourne l'environnement Jinja2 configuré pour les templates.
+
+    Cherche d'abord dans custom/templates/ puis dans templates/ pour permettre
+    la surcharge des templates par l'utilisateur.
+
+    Retourne
+    --------
+    Environment
+        L'environnement Jinja2 avec support de surcharge de templates.
+    """
+    base_dir = Path(__file__).resolve().parents[1]
+    custom_templates_dir = base_dir / "custom" / "templates"
+    default_templates_dir = base_dir / "templates"
+
+    # ChoiceLoader essaie les loaders dans l'ordre : custom d'abord, puis défaut
+    loader = ChoiceLoader(
+        [
+            FileSystemLoader(custom_templates_dir),
+            FileSystemLoader(default_templates_dir),
+        ]
+    )
+
+    env = Environment(
+        loader=loader,
+        autoescape=select_autoescape(),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    return env
 
 
 def scan_for_documents(
@@ -225,7 +261,7 @@ def scan_for_documents(
     return final_documents, messages
 
 
-def format_documents_for_display(
+def format_nom_documents_for_display(
     documents: List[Dict[str, str]], max_length: int = 88
 ) -> List[Dict[str, str]]:
     """Ajoute des informations de formatage pour l'affichage des documents.
@@ -250,57 +286,6 @@ def format_documents_for_display(
     """
     _add_truncated_paths(documents, max_length)
     return documents
-
-
-def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) -> None:
-    """
-    Ajoute une clé 'display_path' à chaque dict, contenant le chemin tronqué à
-    max_length caractères.
-    Modifie la liste en place.
-    """
-    if not documents:
-        return
-
-    for doc in documents:
-        full_path = doc["path"]
-
-        if len(full_path) <= max_length:
-            doc["display_path"] = full_path
-            continue
-
-        # Récupérer le premier dossier et le nom du fichier
-        parts = full_path.replace("/", "\\").split("\\")
-        if len(parts) <= 2:
-            doc["display_path"] = full_path
-            continue
-
-        first_part = parts[0]
-        last_part = parts[-1]
-
-        # Construire le chemin tronqué: "first_part\...\last_part"
-        truncated = f"{first_part}\\...\\{last_part}"
-
-        # Calculer l'espace disponible pour les chemins intermédiaires
-        if len(truncated) <= max_length:
-            # Ajouter progressivement des dossiers intermédiaires si nécessaire
-            available = (
-                max_length - len(first_part) - len(last_part) - 4
-            )  # -4 pour "\...\\"
-            if available > 0:
-                # Ajouter des dossiers depuis la fin vers l'avant
-                middle_parts = parts[1:-1]
-                middle_str = ""
-                for i in range(len(middle_parts) - 1, -1, -1):
-                    test_str = f"{middle_parts[i]}\\" + middle_str
-                    if len(test_str) <= available - 3:  # -3 pour "..."
-                        middle_str = test_str
-                    else:
-                        break
-
-                if middle_str:
-                    truncated = f"{first_part}\\...\\{middle_str}{last_part}"
-
-        doc["display_path"] = truncated
 
 
 def add_display_paths(documents: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -348,10 +333,310 @@ def read_json_config(
         return None, [[msg, "error"]]
 
 
-def create_poly_td(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
-    """Création d'un poly de TD à partir d'un fichier xml"""
+def create_yaml_for_poly(
+    chemin_dossier: Path, poly_type: str, msg
+) -> tuple[bool, List[List[str]]]:
+    """Création du fichier YAML nécessaire à la génération d'un poly de TD"""
 
-    msg.info("Fonction create_poly_td non encore implémentée.", "info")
+    cfg = load_config()
+
+    # Récupérer le display name (clé 'nom') correspondant au type de document
+    cfg_json, cfg_json_errors = read_json_config()
+    if cfg_json and isinstance(cfg_json, dict):
+        type_mapping = cfg_json.get("type_document", {})
+        type_entry = (
+            type_mapping.get(poly_type) if isinstance(type_mapping, dict) else None
+        )
+        type_document_nom = (
+            type_entry.get("nom")
+            if isinstance(type_entry, dict) and "nom" in type_entry
+            else poly_type
+        )
+    else:
+        type_document_nom = "Inconnu"
+
+    # Initialisation des données avec valeurs par défaut
+    data_poly = {
+        "type_document": poly_type,
+        "version_latex": "UPSTI_Document_v1",
+        "nom_chapitre": "[Impossible de trouver le nom du chapitre]",
+        "logo": "[Impossible de trouver le fichier logo]",
+        "classe": "PT",
+        "filiere": "PT",
+        "variante": "jean-zay",
+        "versions_accessibles": [],
+        "version": "1.0",
+        "fichiers": {},
+        "competences": [],
+    }
+
+    # 1. Récupération de la liste des fichiers tex dans le dossier
+    msg.info("Récupération de la liste des fichiers tex dans le dossier", "info")
+    liste_fichiers, messages_liste_fichiers = scan_for_documents(
+        chemin_dossier,
+        filter_mode="compatible",
+        compilable_filter="compilable",
+    )
+
+    # Gestion des erreurs fatales
+    if liste_fichiers is None:
+        msg.affiche_messages(messages_liste_fichiers, "info")
+        return False, messages_liste_fichiers
+
+    # S'il n'y a aucun fichier
+    if not liste_fichiers:
+        msg.affiche_messages(
+            [["Aucun fichier LaTeX trouvé dans le dossier spécifié.", "fatal_error"]],
+            "resultat_item",
+        )
+        return False, []
+
+    nb_fichiers = len(liste_fichiers)
+    affichage_nb_fichiers = "fichier trouvé" if nb_fichiers == 1 else "fichiers trouvés"
+    msg.affiche_messages(
+        [[f"{nb_fichiers} {affichage_nb_fichiers}", "success"]], "resultat_item"
+    )
+
+    # 2. Récupération des infos du poly à partir du cours associé
+    if poly_type in ["td"]:
+        msg.info("Récupération des informations du cours associé", "info")
+        messages_recuperation_cours: List[List[str]] = []
+
+        # On remonte à la racine des TD pour déterminer le chemin du cours
+        chemin_du_cours = chemin_dossier
+        nb_parents = 0
+        while chemin_du_cours.name != cfg.os.dossier_td:
+            chemin_du_cours = chemin_du_cours.parents[0]
+            nb_parents += 1
+        chemin_du_cours = chemin_du_cours.parents[0] / cfg.os.dossier_cours
+
+        # On cherche le fichier tex du cours (si plusieurs, on prend le 1er)
+        liste_fichiers_cours, messages_liste_fichiers_cours = scan_for_documents(
+            chemin_du_cours,
+            filter_mode="compatible",
+            compilable_filter="compilable",
+        )
+        messages_recuperation_cours.extend(messages_liste_fichiers_cours)
+
+        if len(liste_fichiers_cours) == 0:
+            if len(messages_liste_fichiers_cours) == 0:
+                messages_recuperation_cours.append(
+                    [
+                        "Aucun fichier de cours trouvé dans le dossier "
+                        f"{chemin_du_cours}",
+                        "warning",
+                    ]
+                )
+
+        else:
+            fichier_cours = liste_fichiers_cours[0]
+            from .document import UPSTILatexDocument
+
+            doc_cours, doc_cours_errors = UPSTILatexDocument.from_path(
+                fichier_cours["path"]
+            )
+
+            # Données principales du poly
+            data_poly["version_latex"] = doc_cours.get_version()[0]
+            data_poly["nom_chapitre"] = doc_cours.get_metadata_value("titre")
+            data_poly["variante"] = doc_cours.get_metadata_value("variante")
+            data_poly["classe"] = doc_cours.get_metadata_value("classe")
+            data_poly["filiere"] = doc_cours.get_metadata_value("filiere")
+
+            # On cherche le logo
+            chemin_logo = doc_cours.get_logo()
+            if chemin_logo is not None:
+                data_poly["logo"] = (
+                    "../"
+                    + nb_parents * "../"
+                    + cfg.os.dossier_cours
+                    + "/"
+                    + cfg.os.dossier_latex
+                    + "/"
+                    + chemin_logo
+                )
+
+            # On récupère les versions accessibles à compiler
+            parametres_compilation = doc_cours.get_compilation_parameters()[0]
+            data_poly["versions_accessibles"] = parametres_compilation.get(
+                "versions_accessibles_a_compiler", []
+            )
+
+            # Tout s'est bien passé
+            messages_recuperation_cours.append(
+                [
+                    "Informations correctement récupérées depuis : "
+                    f"{fichier_cours['path']}",
+                    "success",
+                ]
+            )
+
+        msg.affiche_messages(messages_recuperation_cours, "resultat_item")
+
+    # 3. Il faut filtrer les documents parmi les fichiers trouvés
+    #    On en profite pour récupérer les compétences couvertes
+    msg.info(
+        f"Filtrage des documents de type \"{type_document_nom}\" et "
+        "récupération des infos nécessaires",
+        "info",
+    )
+    messages_filtrage: List[List[str]] = []
+
+    liste_filtree: List[Dict] = []
+    for fichier in liste_fichiers:
+        from .document import UPSTILatexDocument
+
+        doc, doc_errors = UPSTILatexDocument.from_path(fichier["path"])
+        messages_filtrage.extend(doc_errors)
+
+        # On vérifie si c'est un TD et on récupère les infos utiles
+        if doc.get_metadata_value("type_document") == poly_type:
+            fichier["variante"] = doc.get_metadata_value("variante")
+            fichier["filiere"] = doc.get_metadata_value("filiere")
+            fichier["programme"] = doc.get_metadata_value("programme")
+            fichier["competences"] = doc.get_competences()
+            liste_filtree.append(fichier)
+
+            # Compétences
+            competences = fichier.get("competences")
+            data_poly["competences"].extend(
+                competences if isinstance(competences, list) else [competences]
+            )
+
+    # On classe par ordre alphabétique
+    liste_filtree.sort(key=lambda x: x["name"])
+
+    # Répartition des fichiers en catégories
+    import hashlib
+
+    for fichier in liste_filtree:
+        obj_fichier = Path(fichier["path"])
+        nom_dossier = obj_fichier.parents[2].name
+        key_dossier = hashlib.md5(nom_dossier.encode()).hexdigest()
+
+        if key_dossier not in data_poly["fichiers"]:
+            data_poly["fichiers"][key_dossier] = {
+                "dossier": nom_dossier,
+                "liste": [obj_fichier.as_posix()],
+            }
+        else:
+            data_poly["fichiers"][key_dossier]["liste"].append(obj_fichier.as_posix())
+
+    # On élimine les doublons et on classe les compétences dans l'ordre
+    data_poly["competences"] = sorted(list(set(data_poly["competences"])))
+
+    # Génération du numéro de version
+    # Pour l'instant, on va mettre une version 1.0 par défaut. On verra à l'usage
+    data_poly["version"] = "1.0"
+
+    # Messages de filtrage
+    nb_fichiers_filtres = len(liste_filtree)
+    if nb_fichiers_filtres == 0:
+        messages_filtrage.append(
+            [f"Aucun fichier de type \"{type_document_nom}\" trouvé", "warning"]
+        )
+    elif nb_fichiers_filtres == 1:
+        messages_filtrage.append(
+            [f"1 fichier de type \"{type_document_nom}\" trouvé", "success"]
+        )
+    else:
+        messages_filtrage.append(
+            [
+                f"{nb_fichiers_filtres} fichiers de type \"{type_document_nom}\" "
+                "trouvés",
+                "success",
+            ]
+        )
+
+    msg.affiche_messages(messages_filtrage, "resultat_item")
+
+    # 4. Création d'une sauvegarde du fichier YAML s'il existe déjà
+    chemin_fichier_yaml = (
+        chemin_dossier / cfg.os.dossier_poly / cfg.os.nom_fichier_yaml_poly
+    )
+
+    # Si un fichier YAML déjà, on crée une copie de sauvegarde
+    if chemin_fichier_yaml.exists() and chemin_fichier_yaml.is_file():
+        msg.info("Création d'une sauvegarde du fichier YAML s'il existe déjà", "info")
+
+        # Chemin de la sauvegarde (insérer la date YYYYMMDD avant l'extension)
+        today = datetime.now().strftime("%Y%m%d")
+        nom_fichier_backup = f"{today}-{chemin_fichier_yaml.name}.bak"
+
+        chemin_fichier_backup = (
+            chemin_fichier_yaml.parent
+            / cfg.os.dossier_poly_backup_yaml
+            / nom_fichier_backup
+        )
+
+        # Création du dossier de sauvegarde si nécessaire puis copie du fichier
+        try:
+            chemin_fichier_backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(chemin_fichier_yaml, chemin_fichier_backup)
+            msg.affiche_messages(
+                [[f"Sauvegarde créée : {chemin_fichier_backup}", "success"]],
+                "resultat_item",
+            )
+        except Exception as e:
+            msg.affiche_messages(
+                [[f"Impossible de créer la sauvegarde : {e}", "error"]],
+                "resultat_item",
+            )
+
+    # 5. Génération du fichier YAML
+    msg.info("Génération du fichier YAML", "info")
+    messages_yaml: List[List[str]] = []
+
+    # S'assurer que le dossier destination existe
+    try:
+        chemin_fichier_yaml.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        msg.affiche_messages(
+            [
+                [
+                    f"Impossible de créer le dossier {chemin_fichier_yaml.parent} : {e}",
+                    "error",
+                ]
+            ],
+            "resultat_item",
+        )
+        return False, [[str(e), "error"]]
+
+    # Écriture du YAML avec template Jinja2
+    try:
+        # Charger le template
+        env = get_template_env()
+        template = env.get_template("yaml/poly.yaml.j2")
+
+        # Ajouter le nom d'affichage du type pour le template
+        data_poly["poly_type_display"] = type_document_nom.upper()
+
+        # Rendre le template
+        yaml_content = template.render(**data_poly)
+
+        # Écrire le fichier
+        with chemin_fichier_yaml.open("w", encoding="utf-8") as yf:
+            yf.write(yaml_content)
+
+        msg.affiche_messages(
+            [[f"Fichier YAML créé : {chemin_fichier_yaml}", "success"]],
+            "resultat_item",
+        )
+    except Exception as e:
+        msg.affiche_messages(
+            [[f"Impossible d'écrire le fichier YAML : {e}", "error"]],
+            "resultat_item",
+        )
+        return False, [[str(e), "error"]]
+
+    return True, []
+
+
+def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
+    """Création d'un poly de TD à partir d'un fichier YAML"""
+
+    # 1. Lecture du fichier YAML et récupération des données
+    msg.info("Lecture du fichier YAML et récupération des données", "info")
 
     '''
     # Nettoyage des options
@@ -685,326 +970,6 @@ def create_poly_td(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]
     return True, []
 
 
-def create_yaml_for_poly(chemin_dossier: Path, msg) -> tuple[bool, List[List[str]]]:
-    """Création du fichier YAML nécessaire à la génération d'un poly de TD"""
-
-    cfg = load_config()
-
-    # Initialisation des données avec valeurs par défaut
-    data_poly = dict(
-        nom_chapitre="[Impossible de trouver le nom du chapitre]",
-        logo="[Impossible de trouver le fichier logo]",
-        classe="PT",
-        variante="jean-zay",
-        competences=[],
-        fichiers=[],
-        accessibilite=[],
-    )
-
-    # 1. Récupération de la liste des fichiers tex dans le dossier
-    msg.info("Récupération de la liste des fichiers tex dans le dossier", "info")
-    liste_fichiers, messages_liste_fichiers = scan_for_documents(
-        chemin_dossier,
-        filter_mode="compatible",
-        compilable_filter="compilable",
-    )
-
-    # Gestion des erreurs fatales
-    if liste_fichiers is None:
-        msg.affiche_messages(messages_liste_fichiers, "info")
-        return False, messages_liste_fichiers
-
-    # S'il n'y a aucun fichier
-    if not liste_fichiers:
-        msg.affiche_messages(
-            [["Aucun fichier LaTeX trouvé dans le dossier spécifié.", "fatal_error"]],
-            "resultat_item",
-        )
-        return False, []
-
-    nb_fichiers = len(liste_fichiers)
-    affichage_nb_fichiers = "fichier trouvé" if nb_fichiers == 1 else "fichiers trouvés"
-    msg.affiche_messages(
-        [[f"{nb_fichiers} {affichage_nb_fichiers}", "success"]], "resultat_item"
-    )
-
-    # 2. Il faut lister les TD parmi les fichiers trouvés
-    #    On en profite pour récupérer les compétences couvertes
-    msg.info("Filtrage des TD et récupération des infos nécessaires", "info")
-    messages_filtrage_td: List[List[str]] = []
-
-    liste_td: List[Dict] = []
-    for fichier in liste_fichiers:
-        from .document import UPSTILatexDocument
-
-        doc, doc_errors = UPSTILatexDocument.from_path(fichier["path"])
-        messages_filtrage_td.extend(doc_errors)
-
-        # On vérifie si c'est un TD et on récupère les infos utiles
-        if doc.get_metadata_value("type_document") == "td":
-            fichier["variante"] = doc.get_metadata_value("variante")
-            fichier["filiere"] = doc.get_metadata_value("filiere")
-            fichier["programme"] = doc.get_metadata_value("programme")
-            fichier["competences"] = doc.get_competences()
-            liste_td.append(fichier)
-
-    # 3. Récupération du titre et de l'image de titre à partir du cours associé
-    msg.info("Récupération des informations du cours associé", "info")
-    messages_recuperation_cours: List[List[str]] = []
-
-    #
-    # CONTINUE : si variante, filiere et programme sont cohérents entre les TD,
-    # on les met dans le YAML
-    #
-
-    # On remonte à la racine des TD pour déterminer le chemin du cours
-    chemin_du_cours = chemin_dossier
-    nb_parents = 0
-    while chemin_du_cours.name != cfg.os.dossier_td:
-        chemin_du_cours = chemin_du_cours.parents[0]
-        nb_parents += 1
-    chemin_du_cours = chemin_du_cours.parents[0] / cfg.os.dossier_cours
-
-    # On cherche le fichier tex du cours (si plusieurs, on prend le 1er)
-    liste_fichiers_cours, messages_liste_fichiers_cours = scan_for_documents(
-        chemin_du_cours,
-        filter_mode="compatible",
-        compilable_filter="compilable",
-    )
-    messages_recuperation_cours.extend(messages_liste_fichiers_cours)
-
-    if len(liste_fichiers_cours) == 0:
-        if len(messages_liste_fichiers_cours) == 0:
-            messages_recuperation_cours.append(
-                [
-                    f"Aucun fichier de cours trouvé dans le dossier {chemin_du_cours}",
-                    "warning",
-                ]
-            )
-    else:
-        fichier_cours = liste_fichiers_cours[0]
-
-    messages_recuperation_cours.append(["CONTINUE - On en est là", "info"])
-
-    msg.affiche_messages(messages_recuperation_cours, "resultat_item")
-    '''
-    # S'il y en a plusieurs, on prend le premier par défaut, et on crée une instance UPSTIFichierTex
-    if len(fichiers_cours["liste"]) > 0:
-        fichier_tex_cours = UPSTIFichierTex(fichiers_cours["liste"][0], self)
-        fichier_tex_cours.get_infos()
-
-        data["nom_chapitre"] = fichier_tex_cours.infos["titre_en_tete"]
-        data["id_classe"] = fichier_tex_cours.infos["id_classe"]
-        data["id_variante"] = fichier_tex_cours.infos["id_variante"]
-
-        # On cherche le logo
-        chemin_logo = fichier_tex_cours.get_valeur_commande("UPSTIlogoPageDeGarde")
-        data["logo"] = "../" + nb_parents * "../" + DOSSIER_COURS + "/" + chemin_logo
-
-    # 4. Création d'une sauvegarde du fichier yaml s'il existe déjà
-    msg.info("Création d'une sauvegarde du fichier yaml s'il existe déjà", "info")
-
-    # 5. Génération du fichier yaml
-    msg.info("Génération du fichier YAML", "info")
-
-    '''
-
-    '''"""
-    # Dossiers
-    DOSSIER_COURS = "Cours/LaTeX"
-    DOSSIER_TD = "TD"
-
-
-    # Traitement des fichiers
-    if fichiers_a_traiter["is_OK"] and fichiers_a_traiter["nombre"]:
-        from upsti_latex import UPSTIFichierTex
-
-        self.affiche_message(
-            {
-                "texte": "Génération du fichier xml",
-                "type": "titre2",
-                "verbose": options["verbose"],
-            }
-        )
-
-        # Récupération du nom du chapitre : on va tenter de regarder s'il existe un cours dans le même chapitre...
-
-
-        # On remonte à la racine des TD pour déterminer le chemin du cours
-
-        # Génération du numéro de version - Pour l'instant, on va mettre une version 1.0 par défaut. On verra à l'usage
-        data["version"] = "1.0"
-
-        # On classe par ordre alphabetique avec les accents
-        # TODO
-        locale.setlocale(
-            locale.LC_COLLATE, 'fr_FR.UTF-8'
-        )  # Utilisation de la localisation française
-        liste_UPSTI_fichier_tex_triee = sorted(
-            liste_UPSTI_fichier_tex,
-            key=lambda fic: locale.strxfrm(fic.infos["titre"]),
-        )
-
-        # Génération de la liste des fichiers (organisé en section), et recensement des compétences
-        for fichier in fichiers_a_traiter["liste"]:
-            # self.affiche_message({"texte" : fichier.name, "type" : "resultat_item"})
-
-            # On va lister les fichiers, et les classer par dossier
-            if fichier.parents[2].name == "TD":
-                nom_dossier = "default"
-            else:
-                nom_dossier = fichier.parents[2].name
-
-            key_dossier = hashlib.md5(nom_dossier.encode()).hexdigest()
-
-            if key_dossier not in data["fichiers"]:
-                data["fichiers"][key_dossier] = {
-                    "dossier": nom_dossier,
-                    "liste": [fichier.as_posix()],
-                }
-            else:
-                data["fichiers"][key_dossier]["liste"].append(fichier.as_posix())
-
-            # Competences
-            fichier_tex = UPSTIFichierTex(fichier, self)
-            fichier_tex.get_infos()
-            data["competences"] += fichier_tex.infos["competences"]
-
-        # On élimine les doublons et on classe les compétences dans l'ordre
-        data["competences"] = sorted(list(set(data["competences"])))
-
-    # Maintenant qu'on a toutes les infos, on s'occupe du fichier xml
-    xml_content = self.set_xml_content(data)
-
-    # Si le fichier existe, on crée une copie
-    if chemin_fichier_xml.exists():
-        self.affiche_message(
-            {
-                "texte": f"Un fichier {self.config['Poly_TD']['nom_fichier_xml_poly']} existe déjà. Création d'une copie de sauvegarde.",
-                "type": "action",
-                "verbose": options["verbose"],
-            }
-        )
-        chemin_fichier_bak = (
-            chemin_fichier_xml.parent / "bak" / (chemin_fichier_xml.name + '.bak')
-        )
-        chemin_fichier_bak.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(chemin_fichier_xml, chemin_fichier_bak)
-        self.affiche_message(
-            {
-                "texte": "Copie de sauvegarde créée avec succès.",
-                "type": "resultat",
-                "verbose": options["verbose"],
-            }
-        )
-
-    # On crée le fichier (si le dossier n'existe pas, on crée le dossier)
-    self.affiche_message(
-        {
-            "texte": "Création du fichier xml sur le disque.",
-            "type": "action",
-            "verbose": options["verbose"],
-        }
-    )
-    chemin_fichier_xml.parent.mkdir(parents=True, exist_ok=True)
-    with open(chemin_fichier_xml, "w", encoding="utf-8") as fic:
-        fic.write(xml_content)
-        self.affiche_message(
-            {
-                "texte": f"Fichier {chemin_fichier_xml} créé.",
-                "type": "resultat",
-                "verbose": options["verbose"],
-            }
-        )
-
-    self.affiche_message(
-        {
-            "texte": "L'opération s'est à priori terminée avec succès.",
-            "type": "titre1",
-        }
-    )
-    '''
-    return True, []
-
-
-# def set_xml_content(self, data, options={}):
-#     """Création du contenu du fichier xml
-
-#     Paramètres :
-#     ------------
-#         dict data : données à convertir en fichier xml
-
-#     Retourne :
-#     ----------
-#         str contenu_xml : contenu à écrire dans le fichier xml
-#     """
-#     # Nettoyage des options
-#     if not "verbose" in options:
-#         options["verbose"] = True
-
-#     self.affiche_message(
-#         {
-#             "texte": "Création du contenu du fichier xml à partir de la structure des dossiers.",
-#             "type": "action",
-#             "verbose": options["verbose"],
-#         }
-#     )
-#     doc, tag, text = Doc().tagtext()
-
-#     doc.asis('<?xml version="1.0" encoding="utf-8"?>\n')
-#     doc.asis('<!--\n')
-#     doc.asis(
-#         '=============================================================================\n'
-#     )
-#     doc.asis(" Configuration pour la génération d'un poly de TD\n")
-#     doc.asis(
-#         '=============================================================================\n'
-#     )
-#     doc.asis('  - Vous pouvez modifier ce fichier comme vous le souhaitez\n')
-#     doc.asis(
-#         "  - L'ordre des documents et des sections dans le poly sera l'ordre défini dans ce fichier\n"
-#     )
-#     doc.asis("  - Les chemins relatifs sont définis par rapport à ce fichier xml\n")
-#     doc.asis(
-#         '=============================================================================\n'
-#     )
-#     doc.asis('-->')
-#     with tag('poly'):
-#         with tag('nom'):
-#             text(data["nom_chapitre"])
-#         with tag('version'):
-#             text(data["version"])
-#         with tag('imagepagedegarde'):
-#             text(data["logo"])
-#         with tag('id_variante'):
-#             text(data["id_variante"])
-#         with tag('id_classe'):
-#             text(data["id_classe"])
-#         with tag('accessibilite'):
-#             text(data["accessibilite"])
-#         with tag('sections'):
-#             for id, section in data["fichiers"].items():
-#                 with tag('section', ('nom', section["dossier"])):
-#                     for fichier in section["liste"]:
-#                         with tag('fichier'):
-#                             text(fichier)
-#         with tag('competences'):
-#             for competence in data["competences"]:
-#                 with tag('competence'):
-#                     text(competence)
-
-#     contenu_xml = indent(doc.getvalue(), indentation=' ' * 4, newline='\n')
-#     self.affiche_message(
-#         {
-#             "texte": "Contenu du fichier xml créé.",
-#             "type": "resultat",
-#             "verbose": options["verbose"],
-#         }
-#     )
-
-#     return contenu_xml
-
-
 # def get_nombre_pages_pdf(self, fichier, nb_pages_par_feuille=2, recto_verso=True):
 #     """Retourne le nombre de pages d'un fichier pdf, arrondi en fonction du nombre de pages par feuille
 
@@ -1073,3 +1038,54 @@ def create_yaml_for_poly(chemin_dossier: Path, msg) -> tuple[bool, List[List[str
 #         pdf_writer.write(fic)
 
 #     return True
+
+
+def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) -> None:
+    """
+    Ajoute une clé 'display_path' à chaque dict, contenant le chemin tronqué à
+    max_length caractères.
+    Modifie la liste en place.
+    """
+    if not documents:
+        return
+
+    for doc in documents:
+        full_path = doc["path"]
+
+        if len(full_path) <= max_length:
+            doc["display_path"] = full_path
+            continue
+
+        # Récupérer le premier dossier et le nom du fichier
+        parts = full_path.replace("/", "\\").split("\\")
+        if len(parts) <= 2:
+            doc["display_path"] = full_path
+            continue
+
+        first_part = parts[0]
+        last_part = parts[-1]
+
+        # Construire le chemin tronqué: "first_part\...\last_part"
+        truncated = f"{first_part}\\...\\{last_part}"
+
+        # Calculer l'espace disponible pour les chemins intermédiaires
+        if len(truncated) <= max_length:
+            # Ajouter progressivement des dossiers intermédiaires si nécessaire
+            available = (
+                max_length - len(first_part) - len(last_part) - 4
+            )  # -4 pour "\...\\"
+            if available > 0:
+                # Ajouter des dossiers depuis la fin vers l'avant
+                middle_parts = parts[1:-1]
+                middle_str = ""
+                for i in range(len(middle_parts) - 1, -1, -1):
+                    test_str = f"{middle_parts[i]}\\" + middle_str
+                    if len(test_str) <= available - 3:  # -3 pour "..."
+                        middle_str = test_str
+                    else:
+                        break
+
+                if middle_str:
+                    truncated = f"{first_part}\\...\\{middle_str}{last_part}"
+
+        doc["display_path"] = truncated

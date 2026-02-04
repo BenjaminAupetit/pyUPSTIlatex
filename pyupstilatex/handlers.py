@@ -80,6 +80,17 @@ class DocumentVersionHandler(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_logo(self) -> Optional[str]:
+        """Retourne le chemin ou la valeur du logo d'un cours, par exemple.
+
+        Retourne
+        --------
+        Optional[str]
+            Le chemin ou la valeur du logo, ou None si non défini.
+        """
+        pass
+
 
 class HandlerUPSTIDocumentV1(DocumentVersionHandler):
     """Handler pour les documents UPSTI_Document_v1.
@@ -276,6 +287,29 @@ class HandlerUPSTIDocumentV1(DocumentVersionHandler):
             )
             return False, errors
 
+    def get_logo(self) -> Optional[str]:
+        """Retourne le contenu de \\UPSTIlogoPageDeGarde.
+
+        Retourne
+        --------
+        Optional[str]
+            Le contenu de la commande \\UPSTIlogoPageDeGarde, ou None si non définie.
+        """
+        try:
+            content = self.document.content
+            parsed = find_tex_entity(content, "UPSTIlogoPageDeGarde", kind="command")
+
+            # parsed est une liste...
+            if parsed and len(parsed) > 0:
+                first_occurrence = parsed[0]
+                args = first_occurrence.get("args", [])
+                if args and len(args) > 0:
+                    return args[0].get("value")
+
+            return None
+        except Exception:
+            return None
+
 
 class HandlerUPSTIDocumentV2(DocumentVersionHandler):
     """Handler pour les documents UPSTI_Document_v2.
@@ -442,3 +476,17 @@ class HandlerUPSTIDocumentV2(DocumentVersionHandler):
                 [f"Erreur lors de la suppression de la métadonnée: {e}", "error"]
             )
             return False, errors
+
+    def get_logo(self) -> Optional[str]:
+        """Retourne le logo UPSTI pour la version 2.
+
+        Pour l'instant, cette méthode retourne None car la gestion
+        du logo pour v2 n'est pas encore implémentée.
+
+        Retourne
+        --------
+        Optional[str]
+            None (à implémenter ultérieurement).
+        """
+        # TODO: Implémenter la récupération du logo pour UPSTI_Document_v2
+        return None

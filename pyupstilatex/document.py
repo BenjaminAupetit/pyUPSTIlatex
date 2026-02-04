@@ -651,23 +651,25 @@ class UPSTILatexDocument:
         Retourne
         --------
         Optional[any]
-            La valeur associée à la clé demandée, ou None si la métadonnée
+            La valeur associée à la clé demandée, ou "" si la métadonnée
             ou la clé n'existe pas.
         """
+        empty_value = ""
+
         # Récupérer les métadonnées (utilise le cache si disponible)
         metadata, _ = self.get_metadata()
 
         if metadata is None:
-            return None
+            return empty_value
 
         # Vérifier si la métadonnée existe
         if meta not in metadata:
-            return None
+            return empty_value
         meta_data = metadata[meta]
 
         # Vérifier si la clé existe dans la métadonnée
         if not isinstance(meta_data, dict) or key not in meta_data:
-            return None
+            return empty_value
 
         return meta_data[key]
 
@@ -692,6 +694,16 @@ class UPSTILatexDocument:
                 competences = competences_pour_filiere[programme]
 
         return competences
+
+    def get_logo(self) -> Optional[str]:
+        """Retourne le chemin vers le logo UPSTI à utiliser selon la version.
+
+        Retourne
+        --------
+        Optional[str]
+            Chemin vers le fichier logo UPSTI, ou None si non défini.
+        """
+        return self._get_handler().get_logo()
 
     def _get_handler(self) -> DocumentVersionHandler:
         """Retourne le handler approprié selon la version (lazy initialization).
