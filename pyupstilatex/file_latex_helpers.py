@@ -15,7 +15,7 @@ def parse_metadata_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
     """
     errors: List[List[str]] = []
 
-    block = extract_tex_zone(text, "metadonnees_yaml", remove_comment_char=True)
+    block = read_tex_zone(text, "metadonnees_yaml", remove_comment_char=True)
     if not block:
         return {}, errors
 
@@ -278,11 +278,11 @@ def parse_metadata_tex(
     return result, errors
 
 
-def extract_tex_zone(
+def read_tex_zone(
     text: str, zone_name: str, remove_comment_char: bool = False
 ) -> Optional[str]:
     """
-    Extrait le contenu brut d'une zone LaTeX délimitée par
+    Lit le contenu brut d'une zone LaTeX délimitée par
     %### BEGIN <zone_name> ### et %### END <zone_name> ###
 
     - Les lignes BEGIN/END doivent correspondre exactement,
@@ -309,6 +309,63 @@ def extract_tex_zone(
         return "\n".join(cleaned_lines).rstrip("\n")
 
     return content
+
+
+def write_tex_zone(text: str, zone_name: str, zone_content: str) -> str:
+    """
+    Écrit du contenu dans une zone LaTeX délimitée.
+
+    Deux cas possibles :
+    1. Si la zone BEGIN/END existe déjà : remplace le contenu entre les balises
+    2. Si la balise INSERT existe : la remplace par BEGIN + contenu + END
+
+    Paramètres
+    ----------
+    text : str
+        Le texte LaTeX complet à modifier
+    zone_name : str
+        Le nom de la zone (sans les marqueurs ### BEGIN/END/INSERT)
+    zone_content : str
+        Le contenu à insérer dans la zone
+
+    Retourne
+    --------
+    str
+        Le texte modifié avec le contenu inséré
+    """
+    # Pattern pour détecter une zone BEGIN/END existante
+    begin_end_pattern = (
+        rf"(^%### BEGIN {re.escape(zone_name)} ### *\r?\n)"  # groupe 1 : ligne BEGIN
+        r"(.*?)"  # groupe 2 : ancien contenu (à remplacer)
+        rf"(^%### END {re.escape(zone_name)} ### *$)"  # groupe 3 : ligne END
+    )
+
+    match = re.search(begin_end_pattern, text, flags=re.DOTALL | re.MULTILINE)
+
+    if match:
+        # Cas 1 : La zone BEGIN/END existe déjà
+        # Utiliser une fonction de remplacement pour éviter l'interprétation des backslashes
+        def replacer(m):
+            return f"{m.group(1)}{zone_content}\n{m.group(3)}"
+
+        return re.sub(begin_end_pattern, replacer, text, flags=re.DOTALL | re.MULTILINE)
+
+    # Cas 2 : Chercher une balise INSERT
+    insert_pattern = rf"^%### INSERT {re.escape(zone_name)} ### *$"
+
+    if re.search(insert_pattern, text, flags=re.MULTILINE):
+        # Construire le bloc complet BEGIN + contenu + END avec fonction de remplacement
+        def replacer(m):
+            return (
+                f"%### BEGIN {zone_name} ###\n"
+                f"{zone_content}\n"
+                f"%### END {zone_name} ###"
+            )
+
+        return re.sub(insert_pattern, replacer, text, flags=re.MULTILINE)
+
+    # Si ni BEGIN/END ni INSERT n'existe, retourner le texte inchangé
+    return text
 
 
 def find_tex_entity(text: str, name: str, kind: str = "command_declaration"):

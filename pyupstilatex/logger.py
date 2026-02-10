@@ -236,6 +236,9 @@ class MessageHandler:
     def conclusion(self, texte, verbose=None, flag=None):
         self.msg("conclusion", texte, verbose, flag)
 
+    def success(self, texte, verbose=None):
+        self.msg("info", texte, verbose, flag="success")
+
     def saut(self):
         self.msg("saut", "")
 
@@ -312,6 +315,9 @@ class NoOpMessageHandler:
         pass
 
     def conclusion(self, texte, verbose=None, flag=None):
+        pass
+
+    def success(self, texte, verbose=None):
         pass
 
     def saut(self):

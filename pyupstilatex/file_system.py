@@ -291,3 +291,45 @@ class DocumentFile:
             except Exception as e:
                 raise DocumentParseError(f"Unable to read source {self.source}: {e}")
         return self._raw
+
+    def write(
+        self, content: str, encoding: str = "utf-8"
+    ) -> tuple[bool, List[List[str]]]:
+        """Écrit le contenu dans le fichier.
+
+        Paramètres
+        ----------
+        content : str
+            Le contenu à écrire
+        encoding : str, optional
+            L'encodage à utiliser (défaut: "utf-8")
+
+        Retourne
+        --------
+        tuple[bool, List[List[str]]]
+            (succès, messages)
+        """
+        try:
+            # Vérifier que le fichier est modifiable
+            if not self.is_writable:
+                return False, [
+                    [
+                        f"Impossible d'écrire dans le fichier : {self.writable_reason or 'raison inconnue'}",
+                        "error",
+                    ]
+                ]
+
+            # Écrire le fichier
+            if isinstance(self.storage, FileSystemStorage):
+                Path(self.source).write_text(content, encoding=encoding)
+            else:
+                # Pour les autres types de storage, utiliser leur méthode write_text si disponible
+                self.storage.write_text(self.source, content)
+
+            # Invalider le cache de lecture
+            self._raw = None
+
+            return True, []
+
+        except Exception as e:
+            return False, [[f"Erreur lors de l'écriture du fichier : {e}", "error"]]

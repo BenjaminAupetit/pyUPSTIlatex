@@ -1,5 +1,13 @@
 # TODO
 
+## PRIORITE
+
+- version ET version_pyupstilatex
+- terminer la génération de poly
+- faire 2 fonctions convert v0 -> v1 et v1 -> v0
+
+## Idées
+
 - Parse des metadonnees possible aussi avec \begin{comment}
 - Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
 - Faire un .env exemple

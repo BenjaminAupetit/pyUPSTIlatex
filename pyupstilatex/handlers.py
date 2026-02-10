@@ -15,8 +15,6 @@ from .file_latex_helpers import find_tex_entity, parse_metadata_tex, parse_metad
 if TYPE_CHECKING:
     from .document import UPSTILatexDocument
 
-from .config import load_config
-
 
 class DocumentVersionHandler(ABC):
     """Classe de base abstraite pour les handlers de version.
@@ -90,6 +88,23 @@ class DocumentVersionHandler(ABC):
         --------
         Optional[str]
             Le chemin ou la valeur du logo, ou None si non défini.
+        """
+        pass
+
+    @abstractmethod
+    def get_metadata_tex_declaration(self) -> str:
+        """Génère les déclarations LaTeX des métadonnées du document.
+
+        Pour UPSTI_Document, génère les commandes \\newcommand correspondant
+        à chaque métadonnée (en fonction de tex_type et tex_key définis dans
+        la configuration JSON).
+        Pour upsti-latex, les métadonnées sont déjà dans le front-matter YAML,
+        donc retourne une chaîne vide.
+
+        Retourne
+        --------
+        str
+            Les déclarations LaTeX (une par ligne), ou chaîne vide.
         """
         pass
 
@@ -230,7 +245,7 @@ class HandlerUPSTIDocument(DocumentVersionHandler):
                 message = f"Métadonnée '{key}' (\\{tex_key}) ajoutée avec succès."
 
             # 4. Écrire le nouveau contenu
-            self.document.storage.write_text(self.document.source, new_content)
+            self.document.file.write(new_content)
 
             # 5. Invalider le cache des métadonnées
             self.document._metadata = None
@@ -311,6 +326,93 @@ class HandlerUPSTIDocument(DocumentVersionHandler):
             return None
         except Exception:
             return None
+
+    def get_metadata_tex_declaration(self) -> str:
+        """Génère les déclarations LaTeX des métadonnées pour UPSTI_Document.
+
+        Parcourt toutes les métadonnées du document et génère les commandes
+        LaTeX correspondantes en fonction de tex_type et tex_key définis
+        dans pyUPSTIlatex.json.
+
+        - tex_type == "command_declaration" : génère \\newcommand{\\<tex_key>}{<valeur>}
+          où <valeur> est l'id_upsti_document pour les champs relationnels (join_key),
+          ou la raw_value pour les champs simples.
+        - tex_type == "package_option_programme" : ignoré (géré au niveau du \\usepackage).
+
+        Retourne
+        --------
+        str
+            Bloc de déclarations \\newcommand, une par ligne.
+        """
+
+        print("pouet")
+
+        # Charger la config JSON
+        cfg, cfg_errors = read_json_config()
+        if cfg is None:
+            return ""
+
+        cfg_meta = cfg.get("metadonnee", {})
+
+        # Récupérer les métadonnées du document
+        metadata, _ = self.document.get_metadata()
+        if metadata is None:
+            return ""
+
+        print(metadata)
+
+        declarations = []
+
+        for key, meta_config in cfg_meta.items():
+            params = meta_config.get("parametres", {})
+            tex_key = params.get("tex_key")
+            tex_type = params.get("tex_type", "")
+
+            if not tex_key or tex_type != "command_declaration":
+                continue
+
+            # Récupérer les données de la métadonnée dans le document
+            meta_data = metadata.get(key)
+            if meta_data is None:
+                continue
+
+            raw_value = meta_data.get("raw_value", "")
+            if raw_value == "" or raw_value is None:
+                continue
+
+            # Déterminer la valeur à utiliser pour la déclaration
+            join_key = params.get("join_key", "")
+
+            if join_key and not isinstance(raw_value, dict):
+                # Valeur relationnelle : récupérer id_upsti_document depuis la config
+                cfg_section = cfg.get(key, {})
+                entry = cfg_section.get(str(raw_value), {})
+                tex_value = entry.get("id_upsti_document", raw_value)
+            elif isinstance(raw_value, dict):
+                # Valeur custom (dict) : utiliser 0 comme marqueur
+                tex_value = 0
+            elif isinstance(raw_value, bool):
+                tex_value = "1" if raw_value else "0"
+            else:
+                tex_value = raw_value
+
+            declarations.append(f"\\newcommand{{\\{tex_key}}}{{{tex_value}}}")
+
+            # Gérer les custom_tex_keys pour les valeurs custom (dict)
+            custom_tex_keys = params.get("custom_tex_keys", [])
+            if isinstance(raw_value, dict) and custom_tex_keys:
+                for custom_entry in custom_tex_keys:
+                    champ = custom_entry.get("champ", "")
+                    custom_key = custom_entry.get("tex_key", "")
+                    if custom_key and champ in raw_value:
+                        declarations.append(
+                            f"\\newcommand{{\\{custom_key}}}{{{raw_value[champ]}}}"
+                        )
+
+        print(declarations)
+        exit()
+
+        return "\n".join(declarations)
 
 
 class HandlerUpstiLatex(DocumentVersionHandler):
@@ -493,72 +595,15 @@ class HandlerUpstiLatex(DocumentVersionHandler):
         # TODO: Implémenter la récupération du logo pour upsti-latex
         return None
 
+    def get_metadata_tex_declaration(self) -> str:
+        """Les documents upsti-latex n'utilisent pas de déclarations \\newcommand.
 
-# ==============================================================================
-# Handlers pour la préparation des données de poly
-# ==============================================================================
-#
-# TODO A mettre dans document.py
-#
-def prepare_poly_data(yaml_data: Dict, msg) -> Tuple[Optional[Dict], List[List[str]]]:
-    """Prépare les données nécessaires à la génération d'un poly.
+        Les métadonnées sont déjà dans le front-matter YAML, donc aucune
+        déclaration LaTeX supplémentaire n'est nécessaire.
 
-    Cette fonction dispatche vers le handler approprié selon la version LaTeX
-    utilisée dans le document (UPSTI_Document ou upsti-latex).
-
-    Paramètres
-    ----------
-    yaml_data : Dict
-        Dictionnaire contenant les données du fichier YAML de configuration
-        du poly.
-    msg : Logger
-        Instance du logger pour afficher les messages.
-
-    Retourne
-    --------
-    Tuple[Optional[Dict], List[List[str]]]
-        (data_prepared, messages) où data_prepared contient les données
-        enrichies pour la génération du poly, ou None en cas d'erreur.
-        messages contient les erreurs/warnings rencontrés.
-    """
-    messages: List[List[str]] = []
-
-    version_latex = yaml_data.get("version_latex", "UPSTI_Document")
-
-    # Récupération de la configuration JSON
-    cfg, cfg_errors = read_json_config()
-    if cfg_errors:
-        return None, cfg_errors
-    if cfg is None:
-        messages.append(["Configuration JSON introuvable ou invalide.", "fatal_error"])
-        return None, messages
-
-    # On vérifie d'abord que les 3 clés à vérifier sont bien définies et existent
-    # Sinon, on applique les valeurs par défaut
-    cfg_env = load_config()
-    dafault_values = {
-        "type_document": "td",
-        "variante": cfg_env.meta.variante,
-        "classe": cfg_env.meta.classe,
-    }
-
-    for key, default in dafault_values.items():
-        if key not in yaml_data or not yaml_data[key] or yaml_data[key] not in cfg[key]:
-            messages.append(
-                [
-                    f"Clé '{key}' manquante ou non reconnue dans le YAML. "
-                    f"Utilisation de la valeur par défaut: '{default}'.",
-                    "warning",
-                ]
-            )
-            yaml_data[key] = default
-
-    if version_latex == "UPSTI_Document":
-
-        # Extraire les valeurs nécessaires
-        keys_to_convert = ["type_document", "variante", "classe"]
-        for key in keys_to_convert:
-            cle = yaml_data.get(key)
-            yaml_data[key] = cfg[key][cle]["id_upsti_document"]
-
-    return yaml_data, messages
+        Retourne
+        --------
+        str
+            Chaîne vide.
+        """
+        return ""

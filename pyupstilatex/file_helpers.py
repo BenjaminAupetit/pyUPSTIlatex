@@ -1,6 +1,7 @@
 import fnmatch
 import json
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -380,16 +381,16 @@ def create_yaml_for_poly(
 
     # Initialisation des données avec valeurs par défaut
     data_poly = {
-        "type_document": poly_type,
         "version_latex": "UPSTI_Document",
-        "nom_chapitre": "[Impossible de trouver le nom du chapitre]",
+        "metadonnees": {
+            "type_document": poly_type,
+            "titre": "[Impossible de trouver le titre]",
+        },
+        "parametres_compilation": {
+            "versions_accessibles": [],
+        },
         "logo": "[Impossible de trouver le fichier logo]",
-        "classe": cfg.meta.classe,
-        "variante": cfg.meta.variante,
-        "versions_accessibles": [],
-        "version": "1.0",
         "fichiers": {},
-        "competences": [],
     }
 
     # 1. Récupération de la liste des fichiers tex dans le dossier
@@ -460,9 +461,27 @@ def create_yaml_for_poly(
 
             # Données principales du poly
             data_poly["version_latex"] = doc_cours.get_version()[0]
-            data_poly["nom_chapitre"] = doc_cours.get_metadata_value("titre")
-            data_poly["variante"] = doc_cours.get_metadata_value("variante")
-            data_poly["classe"] = doc_cours.get_metadata_value("classe")
+
+            useful_metadata_keys = [
+                "thematique",
+                "titre",
+                "matiere",
+                "variante",
+                "classe",
+                "filiere",
+                "programme",
+                "auteur",
+            ]
+
+            for key in useful_metadata_keys:
+                raw_status = doc_cours.get_metadata_value(key, "type_meta")
+                status = (
+                    raw_status.partition(":")[0] if isinstance(raw_status, str) else ""
+                )
+                if status not in ["default", "deducted"]:
+                    value = doc_cours.get_metadata_value(key)
+                    if value is not None:
+                        data_poly["metadonnees"][key] = value
 
             # On cherche le logo
             chemin_logo = doc_cours.get_logo()
@@ -479,8 +498,8 @@ def create_yaml_for_poly(
 
             # On récupère les versions accessibles à compiler
             parametres_compilation = doc_cours.get_compilation_parameters()[0]
-            data_poly["versions_accessibles"] = parametres_compilation.get(
-                "versions_accessibles_a_compiler", []
+            data_poly["parametres_compilation"]["versions_accessibles"] = (
+                parametres_compilation.get("versions_accessibles_a_compiler", [])
             )
 
             # Tout s'est bien passé
@@ -503,6 +522,7 @@ def create_yaml_for_poly(
     )
     messages_filtrage: List[List[str]] = []
 
+    liste_competences: Dict = {}
     liste_filtree: List[Dict] = []
     for fichier in liste_fichiers:
         from .document import UPSTILatexDocument
@@ -517,11 +537,23 @@ def create_yaml_for_poly(
             fichier["competences"] = doc.get_competences()
             liste_filtree.append(fichier)
 
-            # Compétences
+            # Compétences - fusion des dictionnaires imbriqués
             competences = fichier.get("competences")
-            data_poly["competences"].extend(
-                competences if isinstance(competences, list) else [competences]
-            )
+            if isinstance(competences, dict):
+                # Parcourir les filières (ex: "PTSI-PT", "MPSI-MP")
+                for filiere, programmes in competences.items():
+                    if filiere not in liste_competences:
+                        liste_competences[filiere] = {}
+
+                    # Parcourir les programmes (ex: "2021", "2013")
+                    if isinstance(programmes, dict):
+                        for programme, codes in programmes.items():
+                            if programme not in liste_competences[filiere]:
+                                liste_competences[filiere][programme] = []
+
+                            # Fusionner les codes de compétences
+                            if isinstance(codes, list):
+                                liste_competences[filiere][programme].extend(codes)
 
     # On classe par ordre alphabétique
     liste_filtree.sort(key=lambda x: x["name"])
@@ -529,25 +561,40 @@ def create_yaml_for_poly(
     # Répartition des fichiers en catégories
     import hashlib
 
+    fichiers_par_section = {}
     for fichier in liste_filtree:
         obj_fichier = Path(fichier["path"])
         nom_dossier = obj_fichier.parents[2].name
         key_dossier = hashlib.md5(nom_dossier.encode()).hexdigest()
 
-        if key_dossier not in data_poly["fichiers"]:
-            data_poly["fichiers"][key_dossier] = {
+        if key_dossier not in fichiers_par_section:
+            fichiers_par_section[key_dossier] = {
                 "dossier": nom_dossier,
                 "liste": [obj_fichier.as_posix()],
             }
         else:
-            data_poly["fichiers"][key_dossier]["liste"].append(obj_fichier.as_posix())
+            fichiers_par_section[key_dossier]["liste"].append(obj_fichier.as_posix())
 
-    # On élimine les doublons et on classe les compétences dans l'ordre
-    data_poly["competences"] = sorted(list(set(data_poly["competences"])))
+    # Transformer la structure en liste de dicts
+    data_poly["fichiers"] = [
+        {"section": section_data["dossier"], "liste": section_data["liste"]}
+        for section_data in fichiers_par_section.values()
+    ]
+
+    # Pour chaque filière/programme, éliminer les doublons et trier
+    for filiere in liste_competences:
+        for programme in liste_competences[filiere]:
+            # Éliminer les doublons et trier
+            liste_competences[filiere][programme] = sorted(
+                list(set(liste_competences[filiere][programme]))
+            )
 
     # Génération du numéro de version
     # Pour l'instant, on va mettre une version 1.0 par défaut. On verra à l'usage
-    data_poly["version"] = "1.0"
+    data_poly["metadonnees"]["version"] = "1.0"
+
+    # Affecter au dictionnaire de données
+    data_poly["metadonnees"]["competences"] = liste_competences
 
     # Messages de filtrage
     nb_fichiers_filtres = len(liste_filtree)
@@ -628,6 +675,30 @@ def create_yaml_for_poly(
         env = get_template_env()
         template = env.get_template("yaml/poly.yaml.j2")
 
+        import yaml
+
+        data_poly["poly_yaml"] = yaml.dump(
+            data_poly, allow_unicode=True, sort_keys=False
+        )
+
+        # Ajouter une ligne vide entre chaque clé de niveau 1
+        lines = data_poly["poly_yaml"].split('\n')
+        formatted_lines = []
+        for i, line in enumerate(lines):
+            # Si c'est une clé de niveau 1 (pas d'indentation, commence par une lettre/underscore)
+            # et pas la première ligne, ni un élément de liste (-)
+            if (
+                i > 0
+                and line
+                and not line[0].isspace()
+                and ':' in line
+                and (line[0].isalpha() or line[0] == '_')
+            ):
+                formatted_lines.append('')  # Ajouter une ligne vide avant
+            formatted_lines.append(line)
+
+        data_poly["poly_yaml"] = '\n'.join(formatted_lines)
+
         # Ajouter le nom d'affichage du type pour le template
         data_poly["poly_type_display"] = type_document_nom.upper()
 
@@ -671,49 +742,159 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
         )
         return False, []
 
-    # Vérifications des données d'accessibilité
-    raw = yaml_data.get("versions_accessibles", [])
-    items = (
-        (v.strip() for v in raw.split(","))
-        if isinstance(raw, str)
-        else (str(v).strip() for v in raw) if isinstance(raw, list) else ()
-    )
-
-    allowed = VERSIONS_ACCESSIBLES_DISPONIBLES
-    yaml_data["versions_accessibles"] = [v for v in items if v and v in allowed]
+    # Métadonnées et version
+    metadata = yaml_data.get("metadonnees", {})
+    version_latex = yaml_data.get("version_latex", "upsti-latex")
 
     msg.affiche_messages(
         [["Données YAML récupérées avec succès", "success"]],
         "resultat_item",
     )
 
-    # 2. Préparation des données du poly selon la version LaTeX
-    msg.info("Vérification et normalisation des données du fichier YAML", "info")
+    # 2. Création de la page de garde
+    msg.info("Création du fichier de page de garde", "info")
 
-    from .handlers import prepare_poly_data
+    cfg = load_config()
+    chemin_fichier_pdg = (
+        chemin_fichier_yaml.parent
+        / cfg.os.dossier_poly_page_de_garde
+        / cfg.os.dossier_latex
+        / "pdg_tmp.tex"
+    )
 
-    yaml_data_prepared, prepare_errors = prepare_poly_data(yaml_data, msg)
+    from .document import UPSTILatexDocument
 
-    # if prepare_errors:
-    #     msg.affiche_messages(prepare_errors, "resultat_item")
+    pdg, messages_pdg = UPSTILatexDocument.create(
+        chemin_fichier_pdg, metadata, erase=True, version=version_latex
+    )
 
-    if yaml_data_prepared is None:
+    # Préparation des données pour les templates
+    logo = yaml_data.get("logo", "")
+    liste_fichiers = yaml_data.get("fichiers", [])
+    parametres_compilation = yaml_data.get("parametres_compilation", {})
+    type_document_poly = pdg.get_metadata_value("type_document", "affichage")
+
+    # Définition des templates
+    template_pdg_preambule = (
+        f"latex/{version_latex}/poly/page_de_garde-preambule_document.tex.j2"
+    )
+    template_pdg_contenu = (
+        f"latex/{version_latex}/poly/page_de_garde-contenu_document.tex.j2"
+    )
+
+    # Préparer les données pour les templates
+    competences_liste = metadata.get("competences", {})
+    competences_codes = []
+    if isinstance(competences_liste, dict):
+        for filiere_data in competences_liste.values():
+            if isinstance(filiere_data, dict):
+                for programme_codes in filiere_data.values():
+                    if isinstance(programme_codes, list):
+                        competences_codes.extend(programme_codes)
+
+    # Récupération du nom des fichiers en fonction de leur path
+    fichiers_avec_titres = []
+    for section_fichier in liste_fichiers:
+        section_info = {"section": section_fichier.get("section", ""), "liste": []}
+
+        for chemin_fichier in section_fichier.get("liste", []):
+            # Créer une instance UPSTILatexDocument pour récupérer les métadonnées
+            doc_fichier, _ = UPSTILatexDocument.from_path(chemin_fichier)
+
+            if doc_fichier is not None:
+                # Récupérer titre_activite en priorité, sinon titre
+                titre_fichier = doc_fichier.get_metadata_value("titre_activite")
+                if titre_fichier is None:
+                    titre_fichier = doc_fichier.get_metadata_value("titre")
+
+                # Ajouter le fichier avec son titre
+                section_info["liste"].append(
+                    {
+                        "chemin": chemin_fichier,
+                        "titre": (
+                            titre_fichier if titre_fichier is not None else "Sans titre"
+                        ),
+                    }
+                )
+
+        fichiers_avec_titres.append(section_info)
+
+    print(pdg.get_version())
+    test = pdg.get_metadata_tex_declaration()
+    print(test)
+
+    """
+    BORDEL DE MERDE
+    J'AI CONFONDU 2 CHOSES : 
+      - le package latex utilisé: UPSTI_Document, upsti-latex, EPB_Cours
+      - si on utilise pyupstilatex v1 ou v2
+    
+    Les 2 doivent être absolument cloisonnés.
+
+    Pour l'instant, get_version mélange les 2... fait chier...
+    """
+
+    template_data = {
+        "logo": logo,
+        "fichiers": fichiers_avec_titres,
+        "type_document_poly": type_document_poly,
+        "competences": competences_codes,
+        "parametres_UPSTI_Document": pdg.get_metadata_tex_declaration(),
+    }
+
+    # Rendre les templates
+    try:
+        env = get_template_env(use_latex_delimiters=True)
+
+        # Template préambule
+        template_preambule = env.get_template(template_pdg_preambule)
+        contenu_preambule = template_preambule.render(**template_data).rstrip()
+
+        # Template contenu
+        template_contenu = env.get_template(template_pdg_contenu)
+        contenu_contenu = template_contenu.render(**template_data).rstrip()
+
+    except Exception as e:
         msg.affiche_messages(
-            [["Impossible de préparer les données du poly.", "fatal_error"]],
+            [[f"Erreur lors du rendu des templates : {e}", "error"]],
             "resultat_item",
         )
-        return False, prepare_errors
+        return False, []
 
-    prepare_errors.append(["Données préparées avec succès", "success"])
-    msg.affiche_messages(prepare_errors, "resultat_item")
+    # Insérer les contenus dans les zones appropriées du fichier pdg
+    success_preambule, messages_preambule = pdg.write_tex_zone(
+        "preambule_document", contenu_preambule
+    )
+    if not success_preambule:
+        msg.affiche_messages(messages_preambule, "resultat_item")
+        return False, messages_preambule
 
-    # 3. Création de la page de garde
+    success_contenu, messages_contenu = pdg.write_tex_zone(
+        "contenu_document", contenu_contenu
+    )
+    if not success_contenu:
+        msg.affiche_messages(messages_contenu, "resultat_item")
+        return False, messages_contenu
 
+    # Écrire le fichier final sur le disque
+    success_save, messages_save = pdg.save()
+    if not success_save:
+        msg.affiche_messages(messages_save, "resultat_item")
+        return False, messages_save
+
+    msg.affiche_messages(
+        [[f"Page de garde créée : {chemin_fichier_pdg}", "success"]],
+        "resultat_item",
+    )
+
+    msg.affiche_messages(messages_pdg, "resultat_item")
+
+    # En fonction de la version, préparer le document qui va bien
     #
     #
     # CONTINUE: faut générer le le fichier tex et le compiler
     #
-    #
+    #         "versions_accessibles": parametres_compilation.get("versions_accessibles", []),
 
     # 4. Création du pdf final
 

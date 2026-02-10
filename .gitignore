@@ -3,6 +3,7 @@ __pycache__/
 .env
 .vscode/
 dist/
+work/
 build/
 *.egg-info
 *.xlsx

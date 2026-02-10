@@ -4,7 +4,7 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Literal, Optional, Tuple
 
 import yaml
 from slugify import slugify
@@ -32,7 +32,7 @@ class UPSTILatexDocument:
     """Représente un document LaTeX UPSTI.
 
     Cette classe gère l'ensemble du cycle de vie d'un document LaTeX UPSTI :
-    - Détection automatique de la version (v1/v2/EPB)
+    - Détection automatique de la version (UPSTI_Document/upsti-latex/EPB)
     - Extraction et validation des métadonnées
     - Compilation avec gestion des versions élève/prof/accessibles
     - Post-traitements (copie, upload)
@@ -84,6 +84,159 @@ class UPSTILatexDocument:
     # =========================================================================
     # MÉTHODES DE CLASSE
     # =========================================================================
+
+    @classmethod
+    def create(
+        cls,
+        path: str,
+        metadata: Dict,
+        version: str = "upsti-latex",
+        storage: Optional[StorageProtocol] = None,
+        *,
+        strict: bool = False,
+        require_writable: bool = True,
+        msg: Optional[MessageHandler] = None,
+        erase: bool = False,
+    ) -> tuple["UPSTILatexDocument", List[List[str]]]:
+        """Crée un nouveau document LaTeX UPSTI à partir de métadonnées.
+
+        Cette méthode crée un fichier .tex à partir du template base.tex.j2
+        en y injectant les métadonnées fournies. Le fichier est généré et
+        une instance de UPSTILatexDocument est retournée.
+
+        Paramètres
+        ----------
+        path : str
+            Chemin du fichier .tex à créer.
+        metadata : Dict
+            Dictionnaire des métadonnées initiales du document.
+        version : str, optional
+            Version du document à créer ("UPSTI_Document" ou "upsti-latex").
+            Défaut : "upsti-latex".
+        storage : Optional[StorageProtocol], optional
+            Backend de stockage. Défaut : FileSystemStorage.
+        strict : bool, optional
+            Si True, lève des exceptions en cas d'erreur. Défaut : False.
+        require_writable : bool, optional
+            Si True, exige que le fichier soit modifiable. Défaut : True.
+        msg : Optional[MessageHandler], optional
+            Gestionnaire de messages. Défaut : NoOpMessageHandler.
+        erase : bool, optional
+            Si True, écrase le fichier s'il existe déjà. Si False, renvoie
+            une erreur si le fichier existe. Défaut : False.
+
+        Retourne
+        --------
+        tuple["UPSTILatexDocument", List[List[str]]]
+            (document, messages) où document est l'instance créée (ou None en cas
+            d'erreur) et messages contient les infos/erreurs.
+
+        Exemples
+        --------
+        >>> metadata = {
+        ...     "titre": "Mon TD",
+        ...     "classe": "MPSI",
+        ...     "type_document": "TD"
+        ... }
+        >>> doc, messages = UPSTILatexDocument.create("mon_td.tex", metadata)
+        """
+        from .file_helpers import get_template_env
+
+        errors: List[List[str]] = []
+        msg_handler = msg or NoOpMessageHandler()
+
+        # 1. Vérifier que le fichier n'existe pas déjà (sauf si erase=True)
+        file_path = Path(path)
+        if file_path.exists() and not erase:
+            errors.append(
+                [
+                    f"Le fichier '{path}' existe déjà. Utilisez from_path() "
+                    "pour charger un document existant ou erase=True pour l'écraser.",
+                    "error",
+                ]
+            )
+            return None, errors
+
+        # 2. Créer une instance temporaire pour accéder aux méthodes de validation
+        # (le fichier n'existe pas encore, donc on ne peut pas initialiser normalement)
+        temp_doc = cls._create_bare_instance(
+            source=str(file_path),
+            storage=storage,
+            strict=strict,
+            require_writable=require_writable,
+            msg=msg_handler,
+            version=version,
+        )
+
+        # Générer le YAML avec une ligne par clé principale
+        # et les valeurs complexes (dict/list) en format inline
+        yaml_lines = []
+        for key, value in metadata.items():
+            if isinstance(value, (dict, list)):
+                # Dumper la valeur en format inline (flow style)
+                value_yaml = yaml.dump(
+                    value, allow_unicode=True, default_flow_style=True
+                ).strip()
+                yaml_lines.append(f"{key}: {value_yaml}")
+            else:
+                # Dumper normalement pour les valeurs simples
+                value_yaml = yaml.dump(
+                    {key: value}, allow_unicode=True, default_flow_style=False
+                ).strip()
+                yaml_lines.append(value_yaml)
+
+        metadonnees_yaml = '\n'.join(yaml_lines)
+
+        # Ajouter "% " au début de chaque ligne pour en faire des commentaires LaTeX
+        metadonnees_yaml = '\n'.join(
+            f"% {line}" for line in metadonnees_yaml.split('\n') if line.strip()
+        )
+
+        # 5. Générer le fichier tex à partir du template base.tex.j2
+        try:
+            # Le template base.tex.j2 utilise des délimiteurs LaTeX (<< >>)
+            env = get_template_env(use_latex_delimiters=True)
+            template = env.get_template("latex/base.tex.j2")
+            contenu_tex = template.render(
+                metadonnees_yaml=metadonnees_yaml, version_latex=version
+            )
+
+            # Créer le répertoire parent si nécessaire
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Écrire le fichier
+            file_path.write_text(contenu_tex, encoding="utf-8")
+
+            msg_handler.success(f"Fichier créé : {file_path}")
+
+        except Exception as e:
+            errors.append(
+                [
+                    f"Erreur lors de la création du fichier tex : {e}",
+                    "error",
+                ]
+            )
+            return None, errors
+
+        # 6. Créer l'instance de document avec le fichier maintenant existant
+        try:
+            doc = cls(
+                source=str(file_path),
+                storage=temp_doc.storage,
+                strict=strict,
+                require_writable=require_writable,
+                msg=msg_handler,
+            )
+            return doc, errors
+
+        except Exception as e:
+            errors.append(
+                [
+                    f"Erreur lors de l'initialisation du document créé : {e}",
+                    "error",
+                ]
+            )
+            return None, errors
 
     @classmethod
     def from_path(
@@ -156,6 +309,14 @@ class UPSTILatexDocument:
     def content(self) -> str:
         """Retourne le contenu textuel du fichier."""
         return self.file.read()
+
+    @content.setter
+    def content(self, value: str) -> None:
+        """Modifie le contenu du document (en mémoire uniquement).
+
+        Note : Le contenu n'est pas écrit sur disque tant que save() n'est pas appelé.
+        """
+        self.file._raw = value
 
     # --- Properties avec cache automatique ---
 
@@ -534,6 +695,7 @@ class UPSTILatexDocument:
         formatted, formatted_errors = self._format_metadata(metadata, source=version)
         if formatted is not None:
             self._metadata = formatted
+
         return formatted, errors + formatted_errors
 
     def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
@@ -673,20 +835,30 @@ class UPSTILatexDocument:
 
         return meta_data[key]
 
-    def get_competences(self) -> List[str]:
-        """Récupère la liste des compétences associées au document.
+    def get_competences(self, mode: Literal["full", "liste"] = "full") -> List[str]:
+        """Récupère les compétences associées au document.
 
-        Retourne
-        --------
+        Parameters
+        ----------
+        mode : {"full", "liste"}, default "full"
+            Détermine l’étendue des compétences retournées :
+            - "full" : liste complète des compétences du document.
+            - "liste" : uniquement les compétences liées à la filière considérée.
+
+        Returns
+        -------
         List[str]
-            Liste des compétences, chaque compétence étant un code compétence
-            correspondant à la classe et au programme du document.
+            Liste de codes de compétences correspondant à la classe et au programme
+            du document.
         """
         competences: List[str] = []
 
         competences_raw = self.get_metadata_value("competences")
         filiere = self.get_metadata_value("filiere")
         programme = self.get_metadata_value("programme")
+
+        if mode == "full":
+            return competences_raw
 
         if competences_raw is not None and filiere in competences_raw:
             competences_pour_filiere = competences_raw[filiere]
@@ -704,6 +876,79 @@ class UPSTILatexDocument:
             Chemin vers le fichier logo UPSTI, ou None si non défini.
         """
         return self._get_handler().get_logo()
+
+    def get_metadata_tex_declaration(self) -> str:
+        """Génère les déclarations LaTeX des métadonnées du document.
+
+        Pour UPSTI_Document, génère les commandes \\newcommand correspondant
+        à chaque métadonnée. Pour upsti-latex, retourne une chaîne vide.
+
+        Retourne
+        --------
+        str
+            Les déclarations LaTeX (une par ligne), ou chaîne vide.
+        """
+        print("UPSTILateXDocument.get_metadata_tex_declaration() called")
+        return self._get_handler().get_metadata_tex_declaration()
+
+    def write_tex_zone(
+        self, zone_name: str, zone_content: str
+    ) -> tuple[bool, List[List[str]]]:
+        """Insère du contenu dans une zone LaTeX spécifique du document.
+
+        Cette méthode modifie le contenu en mémoire. Pour persister les
+        changements, appelez save() après.
+
+        Paramètres
+        ----------
+        zone_name : str
+            Nom de la zone à modifier
+        zone_content : str
+            Contenu à insérer dans la zone
+
+        Retourne
+        --------
+        tuple[bool, List[List[str]]]
+            (succès, messages)
+        """
+        from .file_latex_helpers import write_tex_zone
+
+        try:
+            # Récupérer le contenu actuel
+            contenu_actuel = self.content
+
+            # Appliquer la modification
+            contenu_modifie = write_tex_zone(contenu_actuel, zone_name, zone_content)
+
+            # Mettre à jour le contenu en mémoire
+            self.content = contenu_modifie
+
+            return True, []
+
+        except Exception as e:
+            return False, [
+                [f"Erreur lors de l'écriture de la zone {zone_name} : {e}", "error"]
+            ]
+
+    def save(self, encoding: str = "utf-8") -> tuple[bool, List[List[str]]]:
+        """Sauvegarde le contenu actuel du document sur le disque.
+
+        Paramètres
+        ----------
+        encoding : str, optional
+            L'encodage à utiliser (défaut: "utf-8")
+
+        Retourne
+        --------
+        tuple[bool, List[List[str]]]
+            (succès, messages)
+        """
+        success, messages = self.file.write(self.content, encoding)
+
+        if success:
+            self.msg.success(f"Fichier sauvegardé : {self.source}")
+
+        return success, messages
 
     def _get_handler(self) -> DocumentVersionHandler:
         """Retourne le handler approprié selon la version (lazy initialization).
@@ -2123,6 +2368,56 @@ class UPSTILatexDocument:
     # MÉTHODES PRIVÉES : HELPERS ET UTILITAIRES
     # =========================================================================
 
+    @classmethod
+    def _create_bare_instance(
+        cls,
+        source: str,
+        storage: Optional[StorageProtocol] = None,
+        *,
+        strict: bool = False,
+        require_writable: bool = False,
+        msg: Optional[MessageHandler] = None,
+        version: Optional[str] = None,
+    ) -> "UPSTILatexDocument":
+        """Crée une instance minimale sans initialiser DocumentFile.
+
+        Utilisée en interne pour créer une instance temporaire permettant
+        d'accéder aux méthodes de validation sans nécessiter un fichier existant.
+
+        Paramètres
+        ----------
+        source : str
+            Chemin du fichier source.
+        storage : Optional[StorageProtocol], optional
+            Backend de stockage.
+        strict : bool, optional
+            Mode strict.
+        require_writable : bool, optional
+            Exigence d'écriture.
+        msg : Optional[MessageHandler], optional
+            Gestionnaire de messages.
+        version : Optional[str], optional
+            Version du document si connue.
+
+        Retourne
+        --------
+        UPSTILatexDocument
+            Instance minimale avec attributs initialisés mais sans DocumentFile.
+        """
+        instance = cls.__new__(cls)
+        instance.source = source
+        instance.storage = storage or FileSystemStorage()
+        instance.strict = strict
+        instance.require_writable = require_writable
+        instance.msg = msg or NoOpMessageHandler()
+        instance._metadata = None
+        instance._compilation_parameters = None
+        instance._version = version
+        instance._file = None
+        instance._handler = None
+        instance._liste_fichiers = {"compiled": [], "autres": []}
+        return instance
+
     def _read_fichier_parametres_compilation(
         self, fichier_path: Optional[Path] = None
     ) -> tuple[Optional[Dict], List[List[str]]]:
@@ -2195,7 +2490,7 @@ class UPSTILatexDocument:
                 if not stripped:
                     continue
 
-                # UPSTI_Document v2 (ligne commençant par % mais pas %%)
+                # upsti-latex (ligne commençant par % mais pas %%)
                 if stripped.startswith("%") and not stripped.startswith("%%"):
                     if "%### BEGIN metadonnees_yaml ###" in stripped:
                         return "upsti-latex", []
@@ -2210,6 +2505,31 @@ class UPSTILatexDocument:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
         return "Inconnue", []
+
+    def _get_default_metadata(self) -> Tuple[Dict, List[List[str]]]:
+        """Retourne les métadonnées par défaut (méthode interne).
+
+        Retourne (dict Python, liste de messages d'erreurs (msg, flag)).
+        """
+        default_metadata: Dict[str, Dict] = {}
+        errors: List[Tuple[str, str]] = []
+
+        # On prépare toutes les valeurs par défaut globales (via config .env)
+        epoch = int(time.time())
+        cfg_env = load_config()
+        meta_cfg = cfg_env.meta
+
+        default_metadata = {
+            "id_unique": f"{meta_cfg.id_document_prefixe}{epoch}",
+            "variante": meta_cfg.variante,
+            "matiere": meta_cfg.matiere,
+            "classe": meta_cfg.classe,
+            "type_document": meta_cfg.type_document,
+            "titre": meta_cfg.titre,
+            "version": meta_cfg.version,
+            "auteur": meta_cfg.auteur,
+        }
+        return default_metadata, errors
 
     def _format_metadata(
         self, data: Dict, *, source: str
@@ -2229,21 +2549,9 @@ class UPSTILatexDocument:
 
         cfg_meta = cfg.get("metadonnee") or {}
 
-        # On prépare toutes les valeurs par défaut globales (via config .env)
-        epoch = int(time.time())
-        cfg_env = load_config()
-        meta_cfg = cfg_env.meta
-
-        valeurs_par_defaut = {
-            "id_unique": f"{meta_cfg.id_document_prefixe}{epoch}",
-            "variante": meta_cfg.variante,
-            "matiere": meta_cfg.matiere,
-            "classe": meta_cfg.classe,
-            "type_document": meta_cfg.type_document,
-            "titre": meta_cfg.titre,
-            "version": meta_cfg.version,
-            "auteur": meta_cfg.auteur,
-        }
+        # On prépare toutes les valeurs par défaut globales
+        valeurs_par_defaut, erreurs_default = self._get_default_metadata()
+        errors.extend(erreurs_default)
 
         # Préparation des champs déclarés et par défaut
         for key, meta in cfg_meta.items():
@@ -2640,12 +2948,12 @@ class UPSTILatexDocument:
                 cfg_classe = cfg.get("classe") or {}
                 cfg_filiere = cfg.get("filiere") or {}
 
-                # 1. Gestion de la CLASSE
+                # 1. Gestion de la classe
                 if not meta_ok["classe"].get("raw_value"):
                     meta_ok["classe"]["raw_value"] = valeurs_par_defaut["classe"]
                     meta_ok["classe"]["type_meta"] = "default"
 
-                # 2. Gestion de la FILIERE (dépend de la classe)
+                # 2. Gestion de la filière (dépend de la classe)
                 if not meta_ok["filiere"].get("raw_value"):
                     classe_value = meta_ok["classe"]["raw_value"]
 
@@ -2667,7 +2975,7 @@ class UPSTILatexDocument:
                         ).get("filiere")
                         meta_ok["filiere"]["type_meta"] = "default"
 
-                # 3. Gestion du PROGRAMME (dépend de la filière)
+                # 3. Gestion du programme (dépend de la filière)
                 if not meta_ok["programme"].get("raw_value"):
                     filiere_value = meta_ok["filiere"]["raw_value"]
 
@@ -2684,7 +2992,7 @@ class UPSTILatexDocument:
                     else:
                         meta_ok["programme"]["type_meta"] = "default"
 
-                # 4. Gestion de la MATIERE (indépendant)
+                # 4. Gestion de la matière (indépendant)
                 if not meta_ok["matiere"].get("raw_value", ""):
                     meta_ok["matiere"]["raw_value"] = valeurs_par_defaut["matiere"]
                     meta_ok["matiere"]["type_meta"] = "default"
@@ -2744,12 +3052,3 @@ class UPSTILatexDocument:
                 flag,
             ]
         )
-
-
-# TODO à ajouter
-# Je pense qu'il faut sortir de la classe Document tout ce qui concerne la
-# gestion/validation des métadonnées
-
-# def get_id_upsti_document
-
-# def get_default_value

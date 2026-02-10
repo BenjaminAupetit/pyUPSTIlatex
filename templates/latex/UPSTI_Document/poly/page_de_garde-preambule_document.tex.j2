@@ -1,0 +1,19 @@
+<< parametres_UPSTI_Document >>
+\newcommand{\UPSTImessage}{Poly de << type_document_poly >>}
+
+\UPSTIcompileVars
+%-------------------------------------------------------------------
+\begin{document}
+
+% En-tête
+\UPSTIlogoPageDeGarde{<< logo >>}
+
+% Compétences
+\UPSTIcompetences
+\UPSTItableauCompetences{
+<% for code in competences %>
+\UPSTIligneTableauCompetence{<< code >>}
+<% endfor %>
+}
+
+\pagebreak
