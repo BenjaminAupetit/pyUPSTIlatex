@@ -22,3 +22,10 @@ except Exception:
     # ou si un problème quelconque survient. Dans ce cas, on compte sur
     # l'environnement système pour fournir les variables nécessaires.
     pass
+
+# Import et export de la classe de document (personnalisée ou par défaut)
+from .document_registry import get_document_class
+
+UPSTILatexDocument = get_document_class()
+
+__all__ = ["UPSTILatexDocument"]

@@ -192,7 +192,9 @@ class CompilationConfig:
                 "COMPILATION_DEFAUT_RENOMMER_AUTOMATIQUEMENT", True
             ),
             versions_a_compiler=get_list(
-                "COMPILATION_DEFAUT_VERSIONS_A_COMPILER", default=[], sep=","
+                "COMPILATION_DEFAUT_VERSIONS_A_COMPILER",
+                default=["prof", "eleve"],
+                sep=",",
             ),
             versions_accessibles_a_compiler=get_list(
                 "COMPILATION_DEFAUT_VERSIONS_ACCESSIBLES_A_COMPILER",

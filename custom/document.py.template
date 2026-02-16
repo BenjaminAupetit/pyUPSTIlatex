@@ -1,0 +1,97 @@
+"""Classe personnalisée pour surcharger UPSTILatexDocument.
+
+INSTRUCTIONS D'UTILISATION
+===========================
+
+1. Copiez ce fichier en le renommant 'document.py' (sans l'extension .template)
+2. Ajoutez votre logique personnalisée dans la classe CustomUPSTILatexDocument
+3. pyUPSTIlatex utilisera automatiquement votre classe personnalisée
+
+IMPORTANT
+=========
+
+- La classe DOIT s'appeler 'CustomUPSTILatexDocument'
+- Elle DOIT hériter de UPSTILatexDocument (importée depuis pyupstilatex.document)
+- Le fichier doit se nommer exactement 'document.py'
+- Ne créez PAS de __init__.py dans le dossier custom/
+"""
+
+from pyupstilatex.document import UPSTILatexDocument
+
+
+class CustomUPSTILatexDocument(UPSTILatexDocument):
+    """Classe personnalisée pour ajouter des fonctionnalités à UPSTILatexDocument.
+
+    Exemples de personnalisations possibles :
+    - Ajouter des méthodes de traitement supplémentaires
+    - Modifier le comportement de compilation
+    - Ajouter des validations spécifiques
+    - Personnaliser les messages ou logs
+    - Implémenter des hooks de pre/post-traitement
+    """
+
+    # =========================================================================
+    # EXEMPLE 1 : Surcharge d'une méthode existante
+    # =========================================================================
+
+    # def compile(
+    #     self,
+    #     version: str = "eleve",
+    #     clean: bool = False,
+    #     output_dir: Optional[str] = None,
+    # ) -> None:
+    #     """Compilation avec log personnalisé.
+    #
+    #     Exemple de surcharge qui ajoute un message avant/après compilation.
+    #     """
+    #     self.msg.info(f"🚀 Début de compilation personnalisée : {self.source}")
+    #     
+    #     # Appel de la méthode parente
+    #     super().compile(version=version, clean=clean, output_dir=output_dir)
+    #     
+    #     self.msg.success("✅ Compilation personnalisée terminée !")
+
+    # =========================================================================
+    # EXEMPLE 2 : Ajout d'une nouvelle méthode
+    # =========================================================================
+
+    # def validate_metadata(self) -> bool:
+    #     """Validation personnalisée des métadonnées.
+    #
+    #     Returns
+    #     -------
+    #     bool
+    #         True si les métadonnées sont valides, False sinon.
+    #     """
+    #     metadata = self.metadata
+    #     
+    #     # Exemple : vérifier qu'un champ spécifique existe
+    #     if "thematique" not in metadata:
+    #         self.msg.warning("⚠️ Champ 'thematique' manquant dans les métadonnées")
+    #         return False
+    #     
+    #     return True
+
+    # =========================================================================
+    # EXEMPLE 3 : Hook de post-traitement
+    # =========================================================================
+
+    # def post_compile_hook(self, compiled_files: List[Path]) -> None:
+    #     """Hook appelé après compilation.
+    #
+    #     Parameters
+    #     ----------
+    #     compiled_files : List[Path]
+    #         Liste des fichiers PDF générés.
+    #     """
+    #     self.msg.info(f"📄 {len(compiled_files)} fichier(s) compilé(s)")
+    #     
+    #     # Exemple : copier les PDFs dans un dossier spécifique
+    #     custom_output = Path("~/MesDocuments/UPSTI/Output").expanduser()
+    #     custom_output.mkdir(parents=True, exist_ok=True)
+    #     
+    #     for pdf_file in compiled_files:
+    #         shutil.copy2(pdf_file, custom_output / pdf_file.name)
+    #         self.msg.info(f"📋 Copié : {pdf_file.name}")
+
+    pass  # Supprimer ce 'pass' si vous décommentez les méthodes ci-dessus

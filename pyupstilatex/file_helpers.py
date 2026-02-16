@@ -12,6 +12,9 @@ from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 
 JSON_CONFIG_PATH = Path(__file__).resolve().parents[1] / "pyUPSTIlatex.json"
+JSON_CUSTOM_CONFIG_PATH = (
+    Path(__file__).resolve().parents[1] / "custom/pyUPSTIlatex.json"
+)
 
 
 def read_json_config(
@@ -23,13 +26,67 @@ def read_json_config(
     (ou `None` en cas d'erreur) et `messages` est une liste de paires
     `[message, flag]` décrivant les erreurs/avertissements rencontrés.
     """
+    messages: List[List[str]] = []
+
+    # Fonction pour supprimer récursivement des clés selon la structure "remove"
+    def apply_removals(data: dict, remove_spec: dict) -> None:
+        """Supprime récursivement les clés spécifiées dans remove_spec."""
+        for key, value in remove_spec.items():
+            if key in data:
+                if value == "remove":
+                    # Supprimer cette clé
+                    del data[key]
+                elif isinstance(value, dict) and isinstance(data[key], dict):
+                    # Descendre récursivement
+                    apply_removals(data[key], value)
+
+    # Fonction pour fusionner récursivement create_or_modify
+    def deep_merge(base: dict, updates: dict) -> None:
+        """Fusionne updates dans base de manière récursive."""
+        for key, value in updates.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                # Fusion récursive
+                deep_merge(base[key], value)
+            else:
+                # Remplacement ou création
+                base[key] = value
+
     try:
+        # === 1. Lire le fichier JSON principal ===
         if path is None:
             json_path = JSON_CONFIG_PATH
         else:
             json_path = Path(path)
+
         with json_path.open("r", encoding="utf-8") as f:
-            return json.load(f), []
+            data = json.load(f)
+
+        # === 2. Lire le fichier JSON custom s'il existe ===
+        if path is None and JSON_CUSTOM_CONFIG_PATH.exists():
+            try:
+                with JSON_CUSTOM_CONFIG_PATH.open("r", encoding="utf-8") as f:
+                    custom_data = json.load(f)
+
+                # === 3. Appliquer les suppressions ===
+                if "remove" in custom_data and isinstance(custom_data["remove"], dict):
+                    apply_removals(data, custom_data["remove"])
+
+                # === 4. Appliquer les créations/modifications ===
+                if "create_or_modify" in custom_data and isinstance(
+                    custom_data["create_or_modify"], dict
+                ):
+                    deep_merge(data, custom_data["create_or_modify"])
+
+            except Exception as e:
+                messages.append(
+                    [
+                        f"Erreur lors de la lecture du fichier custom : {e}",
+                        "warning",
+                    ]
+                )
+
+        return data, messages
+
     except Exception:
         msg = (
             "Impossible de lire le fichier pyUPSTIlatex.json. "
@@ -1235,149 +1292,259 @@ def prepare_for_pyupstilatex_v2(
     chemin_fichier = Path(infos_document["path"])
     dossier_document = chemin_fichier.parent
 
-    # === 1. Renommer le dossier latex sources ===
-    ancien_dossier_latex = dossier_document / cfg.legacy.dossier_latex_sources
-    nouveau_dossier_latex = dossier_document / cfg.os.dossier_latex_sources
+    fichier_config_yaml = dossier_document / cfg.os.nom_fichier_parametres_compilation
+    if fichier_config_yaml.exists():
+        return True, [
+            [
+                "Le fichier de configuration YAML existe déjà. Par précaution, on ne "
+                "change rien.",
+                "error",
+            ]
+        ]
 
-    if ancien_dossier_latex.exists() and ancien_dossier_latex.is_dir():
-        try:
-            if nouveau_dossier_latex.exists():
-                # Vérifier si c'est le même dossier (changement de casse uniquement)
-                if ancien_dossier_latex.resolve() == nouveau_dossier_latex.resolve():
-                    # Même dossier, on renomme pour changer la casse
-                    ancien_dossier_latex.rename(nouveau_dossier_latex)
-                else:
-                    # Dossier différent, conflit réel
-                    messages.append(
-                        [
-                            f"Le dossier {nouveau_dossier_latex.name} existe déjà, "
-                            f"impossible de renommer {ancien_dossier_latex.name}",
-                            "warning",
-                        ]
-                    )
-            else:
-                ancien_dossier_latex.rename(nouveau_dossier_latex)
-        except Exception as e:
-            messages.append(
-                [
-                    f"Erreur lors du renommage du dossier "
-                    f"{ancien_dossier_latex.name} : {e}",
-                    "warning",
-                ]
-            )
+    if not infos_document.get("a_ignorer", False):
 
-    # === 2. Renommer le sous-dossier images ===
-    if nouveau_dossier_latex.exists():
-        dossier_latex_actuel = nouveau_dossier_latex
-    else:
-        dossier_latex_actuel = ancien_dossier_latex
+        # === 1. Renommer le dossier latex sources ===
+        ancien_dossier_latex = dossier_document / cfg.legacy.dossier_latex_sources
+        nouveau_dossier_latex = dossier_document / cfg.os.dossier_latex_sources
 
-    if dossier_latex_actuel.exists() and dossier_latex_actuel.is_dir():
-        ancien_dossier_images = (
-            dossier_latex_actuel / cfg.legacy.dossier_latex_sources_images
-        )
-        nouveau_dossier_images = (
-            dossier_latex_actuel / cfg.os.dossier_latex_sources_images
-        )
-
-        if ancien_dossier_images.exists() and ancien_dossier_images.is_dir():
+        if ancien_dossier_latex.exists() and ancien_dossier_latex.is_dir():
             try:
-                if nouveau_dossier_images.exists():
+                if nouveau_dossier_latex.exists():
                     # Vérifier si c'est le même dossier (changement de casse uniquement)
                     if (
-                        ancien_dossier_images.resolve()
-                        == nouveau_dossier_images.resolve()
+                        ancien_dossier_latex.resolve()
+                        == nouveau_dossier_latex.resolve()
                     ):
                         # Même dossier, on renomme pour changer la casse
-                        ancien_dossier_images.rename(nouveau_dossier_images)
+                        ancien_dossier_latex.rename(nouveau_dossier_latex)
                     else:
                         # Dossier différent, conflit réel
                         messages.append(
                             [
-                                f"Le dossier {nouveau_dossier_images.name} existe déjà, "
-                                f"impossible de renommer {ancien_dossier_images.name}",
+                                f"Le dossier {nouveau_dossier_latex.name} existe déjà, "
+                                f"impossible de renommer {ancien_dossier_latex.name}",
                                 "warning",
                             ]
                         )
                 else:
-                    ancien_dossier_images.rename(nouveau_dossier_images)
-
+                    ancien_dossier_latex.rename(nouveau_dossier_latex)
             except Exception as e:
                 messages.append(
                     [
-                        f"Erreur lors du renommage du sous-dossier "
-                        f"{ancien_dossier_images.name} : {e}",
+                        f"Erreur lors du renommage du dossier "
+                        f"{ancien_dossier_latex.name} : {e}",
                         "warning",
                     ]
                 )
 
-    # === 3. Modifier les fichiers tex pour modifier src et images ===
-    from .document import UPSTILatexDocument
+        # === 2. Renommer le sous-dossier images ===
+        if nouveau_dossier_latex.exists():
+            dossier_latex_actuel = nouveau_dossier_latex
+        else:
+            dossier_latex_actuel = ancien_dossier_latex
 
-    doc, doc_errors = UPSTILatexDocument.from_path(str(chemin_fichier))
-    if doc_errors:
-        messages.extend(doc_errors)
+        if dossier_latex_actuel.exists() and dossier_latex_actuel.is_dir():
+            ancien_dossier_images = (
+                dossier_latex_actuel / cfg.legacy.dossier_latex_sources_images
+            )
+            nouveau_dossier_images = (
+                dossier_latex_actuel / cfg.os.dossier_latex_sources_images
+            )
 
-    if doc is None or not doc.is_readable:
-        messages.append(
-            [
-                f"Impossible de lire le fichier {chemin_fichier.name} "
-                "pour effectuer les remplacements",
-                "error",
-            ]
-        )
-        return False, messages
+            if ancien_dossier_images.exists() and ancien_dossier_images.is_dir():
+                try:
+                    if nouveau_dossier_images.exists():
+                        # Vérifier si c'est le même dossier
+                        if (
+                            ancien_dossier_images.resolve()
+                            == nouveau_dossier_images.resolve()
+                        ):
+                            # Même dossier, on renomme pour changer la casse
+                            ancien_dossier_images.rename(nouveau_dossier_images)
+                        else:
+                            # Dossier différent, conflit réel
+                            messages.append(
+                                [
+                                    f"Le dossier {nouveau_dossier_images.name} existe "
+                                    "déjà, impossible de renommer "
+                                    f"{ancien_dossier_images.name}",
+                                    "warning",
+                                ]
+                            )
+                    else:
+                        ancien_dossier_images.rename(nouveau_dossier_images)
 
-    # Récupérer le contenu actuel du document
-    contenu_fichier = doc.content
-    if contenu_fichier is None:
-        messages.append(
-            [
-                f"Impossible de récupérer le contenu du fichier "
-                f"{chemin_fichier.name}",
-                "error",
-            ]
-        )
-        return False, messages
+                except Exception as e:
+                    messages.append(
+                        [
+                            f"Erreur lors du renommage du sous-dossier "
+                            f"{ancien_dossier_images.name} : {e}",
+                            "warning",
+                        ]
+                    )
 
-    # Effectuer les remplacements
-    contenu_modifie = contenu_fichier.replace(
-        cfg.legacy.dossier_latex_sources + "/", cfg.os.dossier_latex_sources + "/"
-    ).replace(
-        cfg.legacy.dossier_latex_sources_images + "/",
-        cfg.os.dossier_latex_sources_images + "/",
-    )
+        # === 3. Modifier les fichiers tex pour modifier src et images ===
+        from .document import UPSTILatexDocument
 
-    # Sauvegarder si le contenu a changé
-    if contenu_modifie != contenu_fichier:
-        doc.content = contenu_modifie
-        success_save, messages_save = doc.save()
-        if not success_save:
-            messages.extend(messages_save)
+        doc, doc_errors = UPSTILatexDocument.from_path(str(chemin_fichier))
+        if doc_errors:
+            messages.extend(doc_errors)
+
+        if doc is None or not doc.is_readable:
             messages.append(
                 [
-                    f"Erreur lors de l'écriture du fichier " f"{chemin_fichier.name}",
+                    f"Impossible de lire le fichier {chemin_fichier.name} "
+                    "pour effectuer les remplacements",
                     "error",
                 ]
             )
             return False, messages
-        messages.append(
-            [f"Fichier {chemin_fichier.name} modifié avec succès", "success"]
+
+        # Récupérer le contenu actuel du document
+        contenu_fichier = doc.content
+        if contenu_fichier is None:
+            messages.append(
+                [
+                    f"Impossible de récupérer le contenu du fichier "
+                    f"{chemin_fichier.name}",
+                    "error",
+                ]
+            )
+            return False, messages
+
+        # Effectuer les remplacements
+        contenu_modifie = contenu_fichier.replace(
+            cfg.legacy.dossier_latex_sources + "/", cfg.os.dossier_latex_sources + "/"
+        ).replace(
+            cfg.legacy.dossier_latex_sources_images + "/",
+            cfg.os.dossier_latex_sources_images + "/",
         )
 
-    # === 4. Récupérer les infos de @parametres.upsti.ini ===
-    # TODO: à implémenter
+        # Sauvegarder si le contenu a changé
+        if contenu_modifie != contenu_fichier:
+            doc.content = contenu_modifie
+            success_save, messages_save = doc.save()
+            if not success_save:
+                messages.extend(messages_save)
+                messages.append(
+                    [
+                        f"Erreur lors de l'écriture du fichier "
+                        f"{chemin_fichier.name}",
+                        "error",
+                    ]
+                )
+                return False, messages
+
+    # === 4. Préparer les données à inscrire dans le YAML ===
+    old_compilation_parameters = {}
+    new_comp_params = {}
+
+    # En fonction des infos transmises, on peut déjà définir certains paramètres
+    if infos_document.get("a_ignorer", False):
+        new_comp_params["ignore"] = True
+
+    if not infos_document.get("a_compiler", True):
+        new_comp_params["compiler"] = False
+
+    # On récupère les infos de @parametres.upsti.ini
+    chemin_fichier_ini = (
+        dossier_document / cfg.legacy.nom_fichier_parametres_compilation
+    )
+
+    if chemin_fichier_ini.exists() and chemin_fichier_ini.is_file():
+        import configparser
+
+        try:
+            config = configparser.ConfigParser()
+            config.read(chemin_fichier_ini, encoding='utf-8')
+
+            # Convertir le ConfigParser en dictionnaire
+            for section in config.sections():
+                for key, value in config.items(section):
+                    old_compilation_parameters[key] = value
+
+        except Exception as e:
+            messages.append(
+                [
+                    f"Erreur lors de la lecture du fichier "
+                    f"{cfg.legacy.nom_fichier_parametres_compilation} : {e}",
+                    "warning",
+                ]
+            )
+
+    # On convertit les paramètres en format compatible avec le nouveau système
+    new_comp_params["versions_a_compiler"] = []
+
+    for key, value in old_compilation_parameters.items():
+        if key == "est_un_document_a_trous":
+            new_comp_params["est_un_document_a_trous"] = value == 1 or value == "1"
+
+        elif key == "compiler_fichier_prof":
+            if value == 1 or value == "1":
+                new_comp_params["versions_a_compiler"].append("prof")
+
+        elif key == "compiler_fichier_eleve":
+            if value == 1 or value == "1":
+                new_comp_params["versions_a_compiler"].append("eleve")
+
+        elif key == "copier_fichiers_pdf_dans_dossier_cible":
+            new_comp_params["copier_pdf_dans_dossier_cible"] = (
+                value == 1 or value == "1"
+            )
+
+        elif key == "uploader_fichiers_sur_ftp":
+            new_comp_params["upload"] = value == 1 or value == "1"
+
+        elif key == "uploader_diaporama":
+            new_comp_params["upload_diaporama"] = value == 1 or value == "1"
+
+    # On supprime de new_comp_params les clés avec des valeurs par défaut
+    # pour ne garder que les paramètres personnalisés
+    keys_to_remove = []
+    for key, value in new_comp_params.items():
+        default_value = getattr(cfg.compilation, key, None)
+        if default_value is not None:
+            if isinstance(value, list) and isinstance(default_value, list):
+                if set(value) == set(default_value) or len(value) == 0:
+                    keys_to_remove.append(key)
+            elif default_value == value:
+                keys_to_remove.append(key)
+
+    for key in keys_to_remove:
+        del new_comp_params[key]
 
     # === 5. Créer le fichier yaml ===
-    '''
-    thematique: dynamique
-    description: |
-        --A compléter--
-    '''
-    # TODO: à implémenter
+
+    # On ajoute thematique et description pour que l'utilisateur puisse les compléter
+    # dans le yaml
+    new_comp_params["surcharge_metadonnees"] = {
+        "thematique": thematique,
+        "description": "--A compléter--",
+    }
+
+    creation_yaml, messages_yaml = create_compilation_parameter_file(
+        dossier_document, new_comp_params
+    )
+    if not creation_yaml:
+        messages.extend(messages_yaml)
+        return False, messages
 
     # === 6. Supprimer le fichier @parametres.upsti.ini ===
-    # TODO: à implémenter
+    try:
+        if chemin_fichier_ini.exists():
+            chemin_fichier_ini.unlink()
+    except Exception as e:
+        messages.append(
+            [
+                f"Erreur lors de la suppression du fichier "
+                f"{cfg.legacy.nom_fichier_parametres_compilation} : {e}",
+                "warning",
+            ]
+        )
+
+    if not messages:
+        messages.append(["OK !", "success"])
 
     return True, messages
 

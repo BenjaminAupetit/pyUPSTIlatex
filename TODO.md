@@ -1,14 +1,5 @@
 # TODO
 
-## En cours
-
-- Faire une fonction pour créer un fichier yaml partout...
-- Mettre les fonctions de utils.py dans file_system
-- Paramètres
-  - Prévoir un fichier pyUPSTIlatex-custom.json
-  - Prévoir aussi une classe UPSTILatexDocumentCustom
-  - Prévoir comment overrider les fichiers accessibilité
-
 ## LaTeX
 
 ### Quand on aura mis en place upsti-latex
