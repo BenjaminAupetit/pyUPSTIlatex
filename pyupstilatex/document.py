@@ -443,6 +443,10 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
+            # Mettre à jour le cache avec les paramètres (y compris les overrides)
+            if resultat is not None:
+                self._compilation_parameters = resultat
+
             # === 4- Lecture des métadonnées ===
             resultat, messages = self._cp_step(
                 affichage="Lecture des métadonnées du fichier tex",
@@ -570,13 +574,14 @@ class UPSTILatexDocument:
                     messages_compilation.extend(messages)
 
                 # --- 12d- Webhook ---
-                if fichier_meta_created and resultat_upload:
-                    resultat, messages = self._cp_step(
-                        affichage="Déclenchement du webhook",
-                        fonction=self._cp_webhook_call,
-                        compilation_options=compilation_cli_options,
-                    )
-                    messages_compilation.extend(messages)
+                if self.compilation_parameters.get("query_webhook_apres_upload", False):
+                    if fichier_meta_created and resultat_upload:
+                        resultat, messages = self._cp_step(
+                            affichage="Déclenchement du webhook",
+                            fonction=self._cp_webhook_call,
+                            compilation_options=compilation_cli_options,
+                        )
+                        messages_compilation.extend(messages)
 
                 # --- 12e- Nettoyage de fin de compilation ---
                 resultat, messages = self._cp_step(
@@ -804,6 +809,7 @@ class UPSTILatexDocument:
             - est_un_document_a_trous: bool
             - copier_pdf_dans_dossier_cible: bool
             - upload: bool
+            - query_webhook_apres_upload: bool
             - upload_diaporama: bool
             - dossier_ftp: str
             Messages contient warnings/erreurs si fichier local invalide.
@@ -830,6 +836,9 @@ class UPSTILatexDocument:
                 cfg.compilation.copier_pdf_dans_dossier_cible
             ),
             "upload": bool(cfg.compilation.upload),
+            "query_webhook_apres_upload": bool(
+                cfg.compilation.query_webhook_apres_upload
+            ),
             "upload_diaporama": bool(cfg.compilation.upload_diaporama),
             "dossier_ftp": str(cfg.compilation.dossier_ftp),
         }

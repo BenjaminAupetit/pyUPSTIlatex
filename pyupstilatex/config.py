@@ -44,9 +44,19 @@ Notes:
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
+
+# Support TOML pour Python 3.11+ (tomllib) et versions antérieures (tomli)
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None  # type: ignore
 
 __all__ = [
     "get_str",
@@ -130,6 +140,119 @@ def get_list(
 
 
 # =========================
+# TOML Configuration Loading
+# =========================
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge override dict into base dict recursively.
+
+    Lists in override replace lists in base (no concatenation).
+    """
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _flatten_toml_to_env(data: dict[str, Any], prefix: str = "") -> dict[str, str]:
+    """Convert nested TOML dict to flat ENV-style dict.
+
+    Example:
+        {"meta": {"default": {"auteur": "John"}}}
+        → {"META_DEFAULT_AUTEUR": "John"}
+    """
+    result = {}
+    for key, value in data.items():
+        env_key = f"{prefix}_{key}".upper() if prefix else key.upper()
+
+        if isinstance(value, dict):
+            result.update(_flatten_toml_to_env(value, env_key))
+        elif isinstance(value, list):
+            # Convert list to comma-separated string
+            result[env_key] = ",".join(str(v) for v in value)
+        elif isinstance(value, bool):
+            result[env_key] = "true" if value else "false"
+        else:
+            result[env_key] = str(value)
+
+    return result
+
+
+def _load_toml_file(path: Path) -> dict[str, Any]:
+    """Load a TOML file and return its content as dict."""
+    if not tomllib:
+        return {}
+
+    if not path.exists():
+        return {}
+
+    try:
+        with open(path, "rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        # Silently ignore TOML errors to not break existing installs
+        return {}
+
+
+def _inject_toml_to_environ(toml_data: dict[str, Any]) -> None:
+    """Inject TOML configuration into os.environ.
+
+    TOML values always override environment variables, EXCEPT for secrets:
+    - FTP_SECRET_KEY, FTP_USER, FTP_PASSWORD, FTP_HOST, FTP_PORT
+    - SITE_SECRET_KEY
+
+    These secrets must be defined in custom/.env and are never overridden.
+    All other configuration MUST come from TOML files (not from .env).
+    """
+    # List of secret keys that must come from .env only
+    SECRET_KEYS = {
+        "FTP_SECRET_KEY",
+        "FTP_USER",
+        "FTP_PASSWORD",
+        "FTP_HOST",
+        "FTP_PORT",
+        "SITE_SECRET_KEY",
+    }
+
+    flat = _flatten_toml_to_env(toml_data)
+    for key, value in flat.items():
+        # Never override secrets from .env with TOML values
+        if key in SECRET_KEYS and key in os.environ:
+            continue
+        # All other values: TOML takes priority
+        os.environ[key] = value
+
+
+def _load_config_from_toml() -> None:
+    """Load TOML configuration files and inject into os.environ.
+
+    Loading order (later overrides earlier):
+    1. pyupstilatex/config/config.default.toml (versioned defaults)
+    2. custom/config.toml (local overrides, not versioned)
+
+    Then loads custom/.env for secrets (via dotenv in __init__.py).
+    """
+    # Paths
+    package_dir = Path(__file__).resolve().parent
+    default_config_path = package_dir / "config" / "config.default.toml"
+    custom_config_path = package_dir.parent / "custom" / "config.toml"
+
+    # Load default config
+    default_config = _load_toml_file(default_config_path)
+
+    # Load and merge custom config
+    custom_config = _load_toml_file(custom_config_path)
+    merged_config = _deep_merge(default_config, custom_config)
+
+    # Inject into environment
+    _inject_toml_to_environ(merged_config)
+
+
+# =========================
 # Section-based dataclasses
 # =========================
 @dataclass(frozen=True)
@@ -172,6 +295,7 @@ class CompilationConfig:
     est_un_document_a_trous: bool
     copier_pdf_dans_dossier_cible: bool
     upload: bool
+    query_webhook_apres_upload: bool
     upload_diaporama: bool
     dossier_ftp: str
 
@@ -208,6 +332,9 @@ class CompilationConfig:
                 "COMPILATION_DEFAUT_COPIER_PDF_DANS_DOSSIER_CIBLE", True
             ),
             upload=get_bool("COMPILATION_DEFAUT_UPLOAD", True),
+            query_webhook_apres_upload=get_bool(
+                "COMPILATION_DEFAUT_QUERY_WEBHOOK_APRES_UPLOAD", False
+            ),
             upload_diaporama=get_bool("COMPILATION_DEFAUT_UPLOAD_DIAPORAMA", True),
             dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
             # Paramètres de compilation LaTeX
@@ -454,5 +581,19 @@ class AppConfig:
 
 
 def load_config() -> AppConfig:
-    """Convenience function to build an AppConfig from environment variables."""
+    """Load configuration from TOML files and environment variables.
+
+    Loading order (later overrides earlier):
+    1. pyupstilatex/config/config.default.toml (versioned defaults)
+    2. custom/config.toml (local overrides, not versioned)
+    3. custom/.env (SECRETS ONLY: FTP_*, SITE_SECRET_KEY)
+
+    All configuration MUST be in TOML files.
+    The .env file is ONLY for secrets (credentials, API keys).
+    TOML values always take priority over .env for non-secret keys.
+    """
+    # Load TOML configuration and inject into os.environ
+    _load_config_from_toml()
+
+    # Build and return AppConfig from environment
     return AppConfig.from_env()

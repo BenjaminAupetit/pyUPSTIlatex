@@ -1,12 +1,75 @@
 # Personnalisation de pyUPSTIlatex (custom)
 
-Ce dossier permet de personnaliser pyUPSTIlatex de trois manières :
+Ce dossier permet de personnaliser pyUPSTIlatex de quatre manières :
 
-1. **Surcharge de templates** : modifier les templates Jinja2
-2. **Surcharge de classes** : étendre le comportement de `UPSTILatexDocument`
-3. **Surcharge de la config/data** : modifier les définitions de `pyUPSTIlatex.json`
+1. **Configuration personnalisée** : fichiers `.env` et `config.toml`
+2. **Surcharge de la config/data** : modifier les définitions de `pyUPSTIlatex.json`
+3. **Surcharge de templates** : modifier les templates Jinja2
+4. **Surcharge de classes** : étendre le comportement de `UPSTILatexDocument`
 
-## Fonctionnement
+## 1. Configuration personnalisée
+
+### Fichiers de configuration
+
+- **`.env`** : Secrets et informations sensibles (mots de passe, clés API)
+- **`config.toml`** : Configuration métier (valeurs par défaut, chemins, etc.)
+
+Ces fichiers ne sont **jamais versionnés** (ajoutés au `.gitignore`).
+
+### Mise en place
+
+```bash
+# Copier les templates
+cp .env.template .env
+cp config.toml.template config.toml
+
+# Éditer avec vos valeurs
+notepad .env
+notepad config.toml
+```
+
+### Exemple `.env`
+
+```dotenv
+# Secrets uniquement
+FTP_USER=mon_utilisateur
+FTP_PASSWORD=mon_mot_de_passe
+FTP_HOST=mon-serveur.com
+SITE_SECRET_KEY=ma-clé-secrète
+```
+
+### Exemple `config.toml`
+
+```toml
+# Overrides de configuration métier
+[meta.default]
+auteur = "Mon Nom"
+variante = "mon-lycee"
+
+[ftp]
+mode_local = true
+mode_local_dossier = "D:\\MesFichiers"
+```
+
+### Ordre de priorité
+
+1. `pyupstilatex/config/config.default.toml` (défauts versionnés)
+2. `custom/config.toml` (vos overrides)
+3. `custom/.env` (vos secrets)
+4. Variables d'environnement système (priorité absolue)
+
+## 2. Configuration JSON
+
+Le fichier `custom/pyUPSTIlatex.json` permet de surcharger la configuration par défaut avec deux opérations :
+
+- `"remove"` : supprimer des clés de configuration
+- `"create_or_modify"` : ajouter ou modifier des valeurs
+
+Voir la documentation principale pour plus de détails.
+
+## 3. Surcharge de templates
+
+### Fonctionnement
 
 Lorsque pyUPSTIlatex cherche un template, il le recherche **d'abord dans ce dossier `custom/templates/`**. Si le fichier n'existe pas ici, il utilise celui du dossier `templates/` par défaut.
 
@@ -49,9 +112,7 @@ cp templates/yaml/poly_config.yaml.j2 custom/templates/yaml/poly_config.yaml.j2
 - Vous pouvez ainsi personnaliser vos templates sans risquer de perdre vos modifications lors des mises à jour.
 - Si vous supprimez un fichier de `custom/templates/`, pyUPSTIlatex reviendra automatiquement au template par défaut.
 
----
-
-## 2. Surcharge de la classe UPSTILatexDocument
+## 4. Surcharge de la classe UPSTILatexDocument
 
 ### Principe
 
@@ -107,14 +168,3 @@ class CustomUPSTILatexDocument(UPSTILatexDocument):
 ### Désactivation
 
 Pour revenir au comportement par défaut, supprimez ou renommez `custom/document.py`.
-
----
-
-## 3. Configuration JSON
-
-Le fichier `custom/pyUPSTIlatex.json` permet de surcharger la configuration par défaut avec deux opérations :
-
-- `"remove"` : supprimer des clés de configuration
-- `"create_or_modify"` : ajouter ou modifier des valeurs
-
-Voir la documentation principale pour plus de détails.

@@ -16,3 +16,6 @@ custom/*
 !custom/README.md
 !custom/document.py.template
 !custom/pyUPSTIlatex.json
+!custom/.env.template
+!custom/config.toml.template
+!custom/templates/

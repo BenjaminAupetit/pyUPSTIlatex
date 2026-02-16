@@ -11,8 +11,10 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescap
 from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 
-JSON_CONFIG_PATH = Path(__file__).resolve().parent / "pyUPSTIlatex.json"
-JSON_CUSTOM_CONFIG_PATH = Path(__file__).resolve().parent / "custom/pyUPSTIlatex.json"
+JSON_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "pyUPSTIlatex.json"
+JSON_CUSTOM_CONFIG_PATH = (
+    Path(__file__).resolve().parent.parent / "custom" / "pyUPSTIlatex.json"
+)
 
 
 def read_json_config(

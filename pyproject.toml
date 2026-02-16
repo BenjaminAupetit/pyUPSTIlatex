@@ -26,6 +26,7 @@ dependencies = [
 	"regex>=2023.8.8",
 	"click>=8.0",
 	"python-dotenv>=1.0.0",
+	"tomli>=2.0.0; python_version < '3.11'",
 ]
 
 [project.urls]
@@ -42,7 +43,7 @@ include = ["pyupstilatex*"]
 exclude = ["tests*", "work*", "custom*", "templates*", "integration*"]
 
 [tool.setuptools.package-data]
-pyupstilatex = ["pyUPSTIlatex.json"]
+pyupstilatex = ["pyUPSTIlatex.json", "config/*.toml"]
 "*" = ["*.yaml", "*.yml", "*.tex", "*.template"]
 
 [tool.black]

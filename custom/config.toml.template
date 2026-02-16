@@ -1,0 +1,52 @@
+#======================================================================================
+# Configuration personnalisée (overrides)
+#======================================================================================
+# Ce fichier permet de surcharger les valeurs de config.default.toml
+#--------------------------------------------------------------------------------------
+# NE JAMAIS VERSIONNER CE FICHIER ! (ajouté dans .gitignore)
+#--------------------------------------------------------------------------------------
+# Pour utiliser :
+# 1. Copier ce fichier en config.toml (sans .template)
+# 2. Décommenter et modifier les sections que vous voulez personnaliser
+# 3. Les valeurs ici prennent le dessus sur config.default.toml
+#--------------------------------------------------------------------------------------
+# Exemples ci-dessous (tout est commenté par défaut) :
+#======================================================================================
+
+#--------------------------------------------------------------------------------------
+# Personnaliser les métadonnées par défaut (doit correspondre aux clés de pyUPSTIlatex.json)
+#--------------------------------------------------------------------------------------
+# [meta.default]
+# auteur = "Votre Nom"
+# variante = "votre-lycee"
+# matiere = "SI"
+
+#--------------------------------------------------------------------------------------
+# Personnaliser les paramètres de compilation
+#--------------------------------------------------------------------------------------
+# [compilation.defaut]
+# versions_a_compiler = ["prof"]
+# upload = false
+
+#--------------------------------------------------------------------------------------
+# Personnaliser les dossiers à traiter (chemins Windows ou Unix)
+#--------------------------------------------------------------------------------------
+# [traitement_par_lot]
+# dossiers_a_traiter = [
+#     "C:\\Users\\VotreNom\\Documents\\Cours",
+#     "C:\\Users\\VotreNom\\Documents\\TD"
+# ]
+
+#--------------------------------------------------------------------------------------
+# Activer le mode local au lieu du FTP
+#--------------------------------------------------------------------------------------
+# [ftp]
+# mode_local = true
+# mode_local_dossier = "D:\\MonDossier\\Documents"
+
+#--------------------------------------------------------------------------------------
+# Personnaliser les URLs du site
+#--------------------------------------------------------------------------------------
+# [site]
+# endpoint_get_config = "https://mon-site.com/api/config"
+# webhook_upload_url = "https://mon-site.com/api/upload"

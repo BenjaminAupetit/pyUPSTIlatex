@@ -1,0 +1,133 @@
+#======================================================================================
+# Configuration par défaut de pyUPSTIlatex
+#======================================================================================
+# Ce fichier contient toutes les valeurs par défaut de configuration.
+# Pour personnaliser : créer custom/config.toml avec vos overrides
+# Pour les secrets : utiliser custom/.env
+#======================================================================================
+
+#--------------------------------------------------------------------------------------
+# Valeurs par défaut des métadonnées obligatoires des fichiers TeX
+#--------------------------------------------------------------------------------------
+[meta.default]
+id_document_prefixe = "EB"
+variante = "jean-zay"
+matiere = "S2I"
+classe = "PT"
+type_document = "cours"
+titre = "Titre par défaut"
+version = "0.1"
+auteur = "Emmanuel BIGEARD"
+
+#--------------------------------------------------------------------------------------
+# Valeurs par défaut des paramètres de compilation
+#--------------------------------------------------------------------------------------
+[compilation.defaut]
+compiler = true
+ignorer = false
+renommer_automatiquement = true
+versions_a_compiler = ["prof", "eleve"]
+versions_accessibles_a_compiler = ["dys"]
+est_un_document_a_trous = false
+copier_pdf_dans_dossier_cible = true
+upload = true
+upload_diaporama = false
+query_webhook_apres_upload = false
+dossier_ftp = "/"
+
+#--------------------------------------------------------------------------------------
+# Paramètres de compilation LaTeX
+#--------------------------------------------------------------------------------------
+[compilation.latex]
+nombre_compilations = 2
+affichage_detaille_dans_console = false
+copier_fichier_version = true
+
+#--------------------------------------------------------------------------------------
+# Fichiers et extensions
+#--------------------------------------------------------------------------------------
+[os.format]
+nom_fichier = "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]"
+nom_fichier_version = "@_v[numero_version].ver"
+nom_fichier_parametres_compilation = "@parametres.pyUPSTIlatex.yaml"
+nom_fichier_qrcode = "qrcode"
+nom_fichier_yaml_poly = "poly.yaml"
+extension_fichier_infos_upload = ".infos.json"
+extensions_diaporama = [".pptx", ".ppt", ".key", ".odp"]
+
+#--------------------------------------------------------------------------------------
+# Suffixes pour les noms de fichiers
+#--------------------------------------------------------------------------------------
+[os.suffixe]
+nom_fichier_prof = "-prof"
+nom_fichier_a_trous = "-eleve"
+nom_diaporama = "-diaporama"
+nom_sources = "-sources"
+nom_poly = "-poly"
+
+#--------------------------------------------------------------------------------------
+# Dossiers et arborescence
+#--------------------------------------------------------------------------------------
+[os.dossier]
+cours = "Cours"
+td = "TD"
+cible_par_rapport_au_fichier_tex = ".."
+latex = "LaTeX"
+latex_build = "build"
+latex_sources = "src"
+latex_sources_images = "images"
+tmp_pour_zip = "temp_zip"
+poly = "_poly"
+poly_backup_yaml = "_bak"
+poly_page_de_garde = "page_de_garde"
+
+#--------------------------------------------------------------------------------------
+# Dossiers à traiter et fichiers à exclure
+#--------------------------------------------------------------------------------------
+[traitement_par_lot]
+dossiers_a_traiter = ['C:/']
+fichiers_a_exclure = [
+    "*_ini.*",
+    "*_tmp.*",
+    "* - Copie*",
+    "*-Dys.*",
+    "*-dys.*",
+    "*-dv.*",
+    "page_de_garde.tex",
+]
+
+#--------------------------------------------------------------------------------------
+# Configuration des polys
+#--------------------------------------------------------------------------------------
+[poly]
+nombre_de_pages_par_feuille = 2
+recto_verso = true
+
+#--------------------------------------------------------------------------------------
+# Configuration FTP (secrets dans custom/.env)
+#--------------------------------------------------------------------------------------
+[ftp]
+timeout = 30
+mode_local = false
+mode_local_dossier = "C:/tmp"
+
+#--------------------------------------------------------------------------------------
+# Configuration du site (secrets dans custom/.env)
+#--------------------------------------------------------------------------------------
+[site]
+endpoint_get_config = "https://s2i.bigeard.me/api/endpoint/pyUPSTIlatex.json"
+webhook_upload_url = "https://votre-site.com/webhook/upload"
+document_url_pattern = "https://votre-site.com/document/{id_unique}"
+
+#--------------------------------------------------------------------------------------
+# Configuration pour compatibilité avec anciennes versions
+#--------------------------------------------------------------------------------------
+[legacy]
+nom_fichier_parametres_compilation = "@parametres.upsti.ini"
+nom_fichier_xml_poly = "poly.xml"
+suffixe_nom_fichier_prof = "-Prof"
+suffixe_nom_fichier_a_trous = "-Eleve"
+suffixe_nom_diaporama = "-Diaporama"
+suffixe_nom_poly = "-polyTD"
+dossier_latex_sources = "Src"
+dossier_latex_sources_images = "Images"

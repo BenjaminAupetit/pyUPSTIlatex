@@ -1,10 +1,5 @@
 # TODO
 
-- README
-- TOML
-- emplacement de pyUPSTIlatex.json
-- egg.info
-
 ## LaTeX
 
 ### Quand on aura mis en place upsti-latex
