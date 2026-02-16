@@ -1741,7 +1741,15 @@ class UPSTILatexDocument:
 
             if not pattern.match(id_unique):
                 # Mauvais format, il faut en générer un nouveau
-                epoch = int(time.time())
+                # D'abord, essayer d'extraire un timestamp de l'ancien id
+                timestamp_match = re.search(r'[0-9]+', id_unique)
+                if timestamp_match:
+                    # Réutiliser le timestamp existant
+                    epoch = timestamp_match.group()
+                else:
+                    # Créer un nouveau timestamp
+                    epoch = str(int(time.time()))
+
                 nouvel_id_unique = f"{prefixe_id_unique}{epoch}"
 
                 # Mise à jour du cache des métadonnées
@@ -1986,7 +1994,9 @@ class UPSTILatexDocument:
                         {
                             "affichage_nom_version": f"élève{suffixe_affichage}",
                             "fichier_tex": fichier_accessible["nom"],
-                            "job_name": f"{self.file.stem}{fichier_accessible['suffixe']}",
+                            "job_name": (
+                                f"{self.file.stem}{fichier_accessible['suffixe']}"
+                            ),
                             "option": "E",
                         }
                     )

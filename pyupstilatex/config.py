@@ -31,6 +31,7 @@ Configuration Sections:
 - TraitementParLotConfig: Dossiers à traiter et fichiers à exclure
 - FTPConfig: Paramètres de connexion FTP et mode local
 - SiteConfig: Configuration du site web (webhooks, URLs)
+- LegacyConfig: pour la compatibilité ascendante (à supprimer à terme)
 
 Notes:
 - All values are read from os.environ at call time (no persistent cache),
@@ -61,6 +62,7 @@ __all__ = [
     "TraitementParLotConfig",
     "FTPConfig",
     "SiteConfig",
+    "LegacyConfig",
     "AppConfig",
     "load_config",
 ]
@@ -369,6 +371,7 @@ class SiteConfig:
     """Valeurs par défaut pour la gestion du site, provenant du .env"""
 
     secret_key: str
+    endpoint_get_config: str
     webhook_upload_url: str
     document_url_pattern: str
 
@@ -376,9 +379,49 @@ class SiteConfig:
     def from_env(cls) -> "SiteConfig":
         return cls(
             secret_key=get_str("SITE_SECRET_KEY", "passkey"),
+            endpoint_get_config=get_str(
+                "SITE_ENDPOINT_GET_CONFIG", "endpoint_get_config"
+            ),
             webhook_upload_url=get_str("SITE_WEBHOOK_UPLOAD_URL", "webhook_upload_url"),
             document_url_pattern=get_str(
                 "SITE_DOCUMENT_URL_PATTERN", "document_url_pattern"
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class LegacyConfig:
+    """Valeurs par défaut pour le legacy, provenant du .env"""
+
+    nom_fichier_parametres_compilation: str
+    nom_fichier_xml_poly: str
+    suffixe_nom_fichier_prof: str
+    suffixe_nom_fichier_a_trous: str
+    suffixe_nom_fichier_diaporama: str
+    suffixe_nom_fichier_poly: str
+    dossier_latex_sources: str
+    dossier_latex_sources_images: str
+
+    @classmethod
+    def from_env(cls) -> "LegacyConfig":
+        return cls(
+            nom_fichier_parametres_compilation=get_str(
+                "LEGACY_NOM_FICHIER_PARAMETRES_COMPILATION", "@parametres.upsti.ini"
+            ),
+            nom_fichier_xml_poly=get_str("LEGACY_NOM_FICHIER_XML_POLY", "poly.xml"),
+            suffixe_nom_fichier_prof=get_str(
+                "LEGACY_SUFFIXE_NOM_FICHIER_PROF", "-Prof"
+            ),
+            suffixe_nom_fichier_a_trous=get_str(
+                "LEGACY_SUFFIXE_NOM_FICHIER_A_TROUS", "-Eleve"
+            ),
+            suffixe_nom_fichier_diaporama=get_str(
+                "LEGACY_SUFFIXE_NOM_DIAPORAMA", "-Diaporama"
+            ),
+            suffixe_nom_fichier_poly=get_str("LEGACY_SUFFIXE_NOM_POLY", "-polyTD"),
+            dossier_latex_sources=get_str("LEGACY_DOSSIER_LATEX_SOURCES", "Src"),
+            dossier_latex_sources_images=get_str(
+                "LEGACY_DOSSIER_LATEX_SOURCES_IMAGES", "Images"
             ),
         )
 
@@ -392,6 +435,7 @@ class AppConfig:
     traitement_par_lot: TraitementParLotConfig
     ftp: FTPConfig
     site: SiteConfig
+    legacy: LegacyConfig
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -403,6 +447,7 @@ class AppConfig:
             traitement_par_lot=TraitementParLotConfig.from_env(),
             ftp=FTPConfig.from_env(),
             site=SiteConfig.from_env(),
+            legacy=LegacyConfig.from_env(),
         )
 
 

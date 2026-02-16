@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from .exceptions import DocumentParseError
+from .file_helpers import check_path_readable, check_path_writable
 from .storage import FileSystemStorage, StorageProtocol
-from .utils import check_path_readable, check_path_writable
 
 
 @dataclass

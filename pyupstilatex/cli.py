@@ -5,8 +5,10 @@ import click
 from .config import load_config
 from .document import UPSTILatexDocument
 from .file_helpers import (
+    JSON_CONFIG_PATH,
     display_version,
     format_nom_documents_for_display,
+    read_json_config,
     scan_for_documents,
 )
 from .logger import (
@@ -373,7 +375,7 @@ def compile(ctx, path, mode, dry_run):
     if chemin.is_dir():
         # Liste des fichiers contenus dans le dossier passé en paramètres
         msg.titre2("Recherche de tous les fichiers tex UPSTI_document à compiler")
-        documents_a_compiler, messages = scan_for_documents(
+        documents_a_convertir, messages = scan_for_documents(
             [str(chemin)],
             None,
             filter_mode="compatible",
@@ -386,24 +388,24 @@ def compile(ctx, path, mode, dry_run):
             msg.separateur2()
 
         # Gérer les erreurs fatales
-        if documents_a_compiler is None:
+        if documents_a_convertir is None:
             messages = [["Erreur fatale lors du scan.", "error"]]
             return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
-        nb_documents = len(documents_a_compiler)
+        nb_documents = len(documents_a_convertir)
         if nb_documents == 0:
             messages = [["Aucun document compatible trouvé.", "error"]]
             return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
         # Affichage de la liste des documents trouvés (avec numérotation)
-        max_name = max(len(d["filename"]) for d in documents_a_compiler)
+        max_name = max(len(d["filename"]) for d in documents_a_convertir)
         max_version = max(
             len(display_version(d["version_pyupstilatex"], d["version_latex"]))
-            for d in documents_a_compiler
+            for d in documents_a_convertir
         )
 
         for idx, d in enumerate(
-            sorted(documents_a_compiler, key=lambda x: x["filename"]), start=1
+            sorted(documents_a_convertir, key=lambda x: x["filename"]), start=1
         ):
             version_text = display_version(
                 d["version_pyupstilatex"], d["version_latex"]
@@ -427,16 +429,16 @@ def compile(ctx, path, mode, dry_run):
             f"Souhaitez-vous réellement compiler {str_fichiers_a_traiter} ? (O/N)"
         )
 
-        doit_compiler = input()
+        doit_compiler = input(" > ")
         if doit_compiler not in ["O", "o"]:
             messages = [["Opération annulée par l'utilisateur.", "error"]]
             return _exit_with_messages(ctx, msg, messages, separator_before=True)
         else:
             if nb_documents == 1:
-                msg.titre2(f"Compilation de : {documents_a_compiler[0]['filename']}")
+                msg.titre2(f"Compilation de : {documents_a_convertir[0]['filename']}")
                 compilation_unique = True
                 doc = UPSTILatexDocument.from_path(
-                    documents_a_compiler[0]["path"], msg=msg
+                    documents_a_convertir[0]["path"], msg=msg
                 )[0]
 
             else:
@@ -451,7 +453,7 @@ def compile(ctx, path, mode, dry_run):
                 num_width = len(str(nb_documents))
 
                 # Compiler chaque document (numérotation cohérente)
-                for idx, doc in enumerate(documents_a_compiler, start=1):
+                for idx, doc in enumerate(documents_a_convertir, start=1):
 
                     if nb_documents > 1:
                         number_label = f"{idx:0{num_width}d}"
@@ -601,6 +603,370 @@ def poly(ctx, path, poly_type):
             return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
     return _exit_with_separator(ctx, msg)
+
+
+@main.command(name="update-config")
+@click.pass_context
+def update_config(ctx):
+    """Met à jour lee fichier pyUPSTIlatex.json à partir du site internet.
+
+    Utile pour corriger un document dont les données sont mal détectées ou pour forcer
+    la mise à jour après correction d'erreurs dans le fichier tex.
+    """
+    msg: MessageHandler = ctx.obj["msg"]
+
+    msg.titre1("MISE À JOUR du fichier de configuration : pyUPSTIlatex.json")
+
+    # === 1. Vérification de l'existence du fichier et récupération de sa version ===
+    msg.info("Vérification de la version du fichier pyUPSTIlatex.json, s'il existe...")
+    messages_existence = []
+
+    # On vérifie si le fichier est présent
+    json_config = read_json_config()[0]
+    if json_config is None:
+        messages_existence.append(
+            ["Le fichier de configuration n'existe pas", "warning"]
+        )
+    else:
+        version = json_config.get("version")
+        date_fichier = json_config.get("date", "inconnue")
+        if version:
+            messages_existence.append(
+                [f"Version actuelle : {version} ({date_fichier})", "success"]
+            )
+        else:
+            messages_existence.append(
+                [
+                    "Le fichier de configuration existe mais ne contient pas de "
+                    "version identifiable.",
+                    "warning",
+                ]
+            )
+    msg.affiche_messages(messages_existence, "resultat_item")
+
+    # === 2. Récupération de la configuration depuis le site ===
+    msg.info("Récupération de la configuration depuis https://s2i.bigeard.me")
+
+    cfg = load_config()
+    endpoint_url = cfg.site.endpoint_get_config
+
+    messages_recuperation = []
+    new_json_config = None
+
+    try:
+        import requests
+
+        response = requests.get(endpoint_url, timeout=10)
+        response.raise_for_status()
+        new_json_config = response.json()
+
+        # Vérifier que le JSON contient une version
+        version_distante = new_json_config.get("version", "inconnue")
+        date_distante = new_json_config.get("date", "inconnue")
+        messages_recuperation.append(
+            [
+                f"Version distante récupérée : {version_distante} ({date_distante})",
+                "success",
+            ]
+        )
+    except requests.exceptions.Timeout:
+        messages_recuperation.append(
+            ["Délai d'attente dépassé lors de la connexion au serveur.", "error"]
+        )
+    except requests.exceptions.ConnectionError:
+        messages_recuperation.append(
+            ["Impossible de se connecter au serveur.", "error"]
+        )
+    except requests.exceptions.HTTPError as e:
+        messages_recuperation.append(
+            [f"Erreur HTTP lors de la récupération : {e}", "error"]
+        )
+    except requests.exceptions.RequestException as e:
+        messages_recuperation.append(
+            [f"Erreur lors de la récupération de la configuration : {e}", "error"]
+        )
+    except ValueError:
+        messages_recuperation.append(
+            ["Le contenu récupéré n'est pas un JSON valide.", "error"]
+        )
+    except Exception as e:
+        messages_recuperation.append([f"Erreur inattendue : {e}", "error"])
+
+    msg.affiche_messages(messages_recuperation, "resultat_item")
+
+    # Si la récupération a échoué, on arrête
+    if new_json_config is None:
+        return _exit_with_messages(
+            ctx,
+            msg,
+            [["Impossible de récupérer la configuration distante.", "fatal_error"]],
+            separator_before=True,
+        )
+
+    if new_json_config == json_config:
+        messages = [["pyUPSTIlatex.json est à jour.", "info"]]
+        return _exit_with_messages(ctx, msg, messages, separator_before=True)
+
+    # === 3. Création ou modification du fichier local ===
+    msg.info("Écriture du fichier pyUPSTIlatex.json...")
+    messages_ecriture = []
+
+    try:
+        import json
+
+        json_path = Path(JSON_CONFIG_PATH)
+
+        # Créer le dossier parent si nécessaire
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Écrire le fichier JSON
+        with json_path.open("w", encoding="utf-8") as f:
+            json.dump(new_json_config, f, ensure_ascii=False, indent=2)
+
+        if json_config is None:
+            messages_ecriture.append(
+                ["Fichier pyUPSTIlatex.json créé avec succès.", "success"]
+            )
+    except PermissionError:
+        messages_ecriture.append(
+            [
+                "Permission refusée lors de l'écriture du fichier. "
+                "Vérifiez les droits d'accès.",
+                "error",
+            ]
+        )
+    except Exception as e:
+        messages_ecriture.append(
+            [f"Erreur lors de l'écriture du fichier : {e}", "error"]
+        )
+
+    msg.affiche_messages(messages_ecriture, "resultat_item")
+
+    # Si l'écriture a échoué, on arrête
+    if any(m[1] == "error" for m in messages_ecriture):
+        return _exit_with_messages(
+            ctx,
+            msg,
+            [["Impossible d'écrire le fichier de configuration.", "fatal_error"]],
+            separator_before=True,
+        )
+
+    return _exit_with_messages(ctx, msg, messages_ecriture, separator_before=True)
+
+
+@main.command(name="prepare")
+@click.argument("path", type=click.Path())
+@click.option(
+    "--version",
+    "-c",
+    "version_cible",
+    type=click.Choice(["pyupstilatex_v2"]),
+    default="pyupstilatex_v2",
+    show_default=True,
+    help="Version cible pour la conversion (ex: pyupstilatex_v2)",
+)
+@click.pass_context
+def prepare(ctx, path, version_cible):
+    """Prépare ou convertit un document ou un dossier de documents pour être utilisée
+    avec la version cible de pyUPSTIlatex.
+
+    Renommage des dossiers, ajout du fichier YAML, etc...
+    """
+
+    versions_cibles_supportees = {
+        "pyupstilatex_v2": {"affichage": "pyUPSTIlatex v2", "version": 2}
+    }
+
+    from pathlib import Path
+
+    chemin = Path(path)
+    msg: MessageHandler = ctx.obj["msg"]
+
+    # Titre
+    msg.titre1(
+        f"CONVERSION de {chemin} vers "
+        f"{versions_cibles_supportees[version_cible]['affichage']}"
+    )
+
+    # Gérer le cas où le chemin fourni est invalide
+    if not chemin.exists():
+        return _exit_with_messages(ctx, msg, [["Dossier introuvable.", "error"]])
+
+    if not chemin.is_dir():
+        return _exit_with_messages(
+            ctx,
+            msg,
+            [["Le chemin fourni n'est pas un dossier.", "error"]],
+        )
+
+    # Liste des fichiers contenus dans le dossier passé en paramètres
+    msg.titre2("Recherche de tous les fichiers tex UPSTI_document à traiter")
+    documents_a_preparer, messages = scan_for_documents(
+        [str(chemin)],
+        None,
+        filter_mode="compatible",
+        compilable_filter="all",
+    )
+
+    # Afficher les messages d'erreur/warning du scan
+    if messages:
+        msg.affiche_messages(messages, "info")
+        msg.separateur2()
+
+    # Gérer les erreurs fatales
+    if documents_a_preparer is None:
+        messages = [["Erreur fatale lors du scan.", "error"]]
+        return _exit_with_messages(ctx, msg, messages, separator_before=True)
+
+    nb_documents = len(documents_a_preparer)
+    if nb_documents == 0:
+        messages = [["Aucun document compatible trouvé.", "error"]]
+        return _exit_with_messages(ctx, msg, messages, separator_before=True)
+
+    # Affichage de la liste des documents trouvés (avec numérotation)
+    max_name = max(len(d["filename"]) for d in documents_a_preparer)
+    max_version = max(
+        len(display_version(d["version_pyupstilatex"], d["version_latex"]))
+        for d in documents_a_preparer
+    )
+
+    # Calculer largeur d'affichage du numéro: 1/2/3 selon le nombre total
+    num_width = len(str(nb_documents))
+    if num_width > 3:
+        num_width = 3
+
+    # On classe par ordre alphabétique et on affiche la liste
+    documents_a_preparer = sorted(documents_a_preparer, key=lambda x: x["filename"])
+
+    for idx, d in enumerate(documents_a_preparer, start=1):
+        version_text = display_version(d["version_pyupstilatex"], d["version_latex"])
+        number_label = f"{idx:>{num_width}d}"
+        msg.info(
+            f"{number_label}. {d['filename']:{max_name}}  "
+            f"{COLOR_DARK_GRAY}│{COLOR_RESET} {version_text:>{max_version}}"
+        )
+
+    # On interroge l'utilisateur
+    msg.titre2("Vos choix pour ces fichiers")
+
+    msg.info(
+        "Indiquer les numéros des fichiers qui devront être complètement ignorés, "
+        "séparés par des virgules (ex: 2,5,7). Laisser vide pour traiter tous "
+        "les fichiers."
+    )
+    doit_ignorer = input("    > ")
+    items_a_ignorer = [
+        n.strip() for n in doit_ignorer.split(",") if n.strip().isdigit()
+    ]
+
+    messages_ignores = []
+    for item in items_a_ignorer:
+        idx = int(item) - 1  # Convertir en index (0-based)
+        if 0 <= idx < len(documents_a_preparer):
+            documents_a_preparer[idx]['a_ignorer'] = True
+            messages_ignores.append(
+                [
+                    f"Marqué pour ignorer : "
+                    f"{documents_a_preparer[idx]['filename']}",
+                    "success",
+                ]
+            )
+
+    if messages_ignores:
+        msg.affiche_messages(messages_ignores, "resultat_item")
+
+    msg.separateur3()
+    msg.info(
+        "Indiquer les numéros des fichiers qui ne devront pas être automatiquement "
+        "compilés, séparés par des virgules (ex: 2,5,7). Laisser vide pour traiter "
+        "tous les fichiers."
+    )
+    doit_compiler = input("    > ")
+
+    items_a_ne_pas_compiler = [
+        n.strip() for n in doit_compiler.split(",") if n.strip().isdigit()
+    ]
+
+    messages_ne_pas_compiler = []
+    for item in items_a_ne_pas_compiler:
+        if item in items_a_ignorer:
+            messages_ne_pas_compiler.append(
+                [
+                    f"Est déjà marqué comme ignoré : "
+                    f"{documents_a_preparer[idx]['filename']}",
+                    "warning",
+                ]
+            )
+        else:
+            idx = int(item) - 1  # Convertir en index (0-based)
+            if 0 <= idx < len(documents_a_preparer):
+                documents_a_preparer[idx]['a_compiler'] = False
+                messages_ne_pas_compiler.append(
+                    [
+                        f"Marqué pour ne pas compiler : "
+                        f"{documents_a_preparer[idx]['filename']}",
+                        "success",
+                    ]
+                )
+
+    if messages_ne_pas_compiler:
+        msg.affiche_messages(messages_ne_pas_compiler, "resultat_item")
+
+    msg.separateur3()
+    msg.info("Quelle doit être la thématique utilisée pour ces documents ?")
+
+    # Extraire et trier tous les slugs des thématiques
+    json_config = read_json_config()[0]
+    thematiques = json_config.get("thematique", {}) if json_config else {}
+
+    slugs_thematiques = []
+    for key, item in thematiques.items():
+        if isinstance(item, dict):
+            slug = item.get("slug")
+            if slug and slug.strip():
+                slugs_thematiques.append(slug.strip())
+
+    slugs_thematiques = sorted(set(slugs_thematiques))
+
+    # Vérification de la thématique saisie
+    thematique_OK = False
+    while not thematique_OK:
+        thematique = input("    > ").strip()
+        if thematique not in slugs_thematiques:
+            msg.info(
+                "Il faut indiquer une thématique valide : "
+                f"{COLOR_DARK_GRAY}{', '.join(slugs_thematiques)}{COLOR_RESET}",
+                flag="warning",
+            )
+        else:
+            thematique_OK = True
+
+    # Trouver le nom d'affichage de la thématique
+    affichage_thematique = thematiques.get(thematique, {}).get("nom", thematique)
+
+    msg.affiche_messages(
+        [
+            [
+                f"Thématique sélectionnée : {affichage_thematique} ({thematique})",
+                "success",
+            ]
+        ],
+        "resultat_item",
+    )
+
+    msg.titre2("Préparation des documents")
+    for doc in documents_a_preparer:
+        msg.info(f"Préparation de {doc['filename']}")
+        if version_cible == "pyupstilatex_v2":
+            from .file_helpers import prepare_for_pyupstilatex_v2
+
+            result, messages_preparation = prepare_for_pyupstilatex_v2(
+                doc, thematique, msg
+            )
+            msg.affiche_messages(messages_preparation, "resultat_item")
+
+    messages = [["Opération terminée", "success"]]
+    return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
 
 def _exit_with_separator(ctx, msg):

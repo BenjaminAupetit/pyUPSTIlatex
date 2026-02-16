@@ -13,7 +13,10 @@
 # .env (pour le fichier tex de ce dossier uniquement).
 #=======================================================================================
 
-# Si on doit compiler ou ignorer ce document
+# Si on doit ignorer complètement le document dans tous les scripts de traitement (compilation, renommage, upload...)
+ignore: true
+
+# Si on doit compiler ce document
 compiler: true
 
 # Si on doit renommer automatiquement le fichier en fonction des métadonnées

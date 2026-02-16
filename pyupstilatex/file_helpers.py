@@ -11,113 +11,31 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescap
 from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 
+JSON_CONFIG_PATH = Path(__file__).resolve().parents[1] / "pyUPSTIlatex.json"
 
-def create_compilation_parameter_file(
-    chemin_dossier: Path, parametres: dict
-) -> Tuple[bool, List[List[str]]]:
-    """Crée un fichier de paramètres de compilation dans le dossier spécifié.
 
-    Le fichier est nommé "@parametres.pyUPSTIlatex.yaml" et contient les
-    paramètres de compilation au format YAML. Si le fichier existe déjà, il
-    sera écrasé.
+def read_json_config(
+    path: Optional[Path | str] = None,
+) -> tuple[Optional[dict], List[List[str]]]:
+    """Lit le fichier JSON de configuration.
 
-    Paramètres
-    ----------
-    chemin_dossier : Path
-        Le chemin du dossier où créer le fichier de paramètres.
-    parametres : dict
-        Dictionnaire des paramètres à inclure dans le fichier YAML.
-
-    Retourne
-    --------
-    Tuple[bool, List[List[str]]]
-        - bool : True si le fichier a été créé avec succès, False sinon.
-        - List[List[str]] : Liste de messages [message, flag] décrivant les
-          erreurs ou succès rencontrés lors de la création du fichier.
+    Retourne un tuple `(data, messages)` où `data` est le dictionnaire lu
+    (ou `None` en cas d'erreur) et `messages` est une liste de paires
+    `[message, flag]` décrivant les erreurs/avertissements rencontrés.
     """
-    cfg = load_config()
-    messages: List[List[str]] = []
-    nom_fichier = cfg.os.nom_fichier_parametres_compilation
-    chemin_fichier = chemin_dossier / nom_fichier
-
     try:
-        import yaml
-
-        # Générer le code YAML
-        code_yaml = yaml.dump(parametres, allow_unicode=True, sort_keys=False)
-
-        # Charger le template
-        env = get_template_env()
-        template = env.get_template("yaml/parametres_compilation_rapide.yaml.j2")
-
-        # Rendre le template avec les variables
-        contenu_fichier = template.render(
-            code_yaml=code_yaml, nom_fichier_yaml=nom_fichier
+        if path is None:
+            json_path = JSON_CONFIG_PATH
+        else:
+            json_path = Path(path)
+        with json_path.open("r", encoding="utf-8") as f:
+            return json.load(f), []
+    except Exception:
+        msg = (
+            "Impossible de lire le fichier pyUPSTIlatex.json. "
+            "Vérifier s'il est bien présent à la racine du projet."
         )
-
-        # Écrire le fichier
-        with chemin_fichier.open("w", encoding="utf-8") as f:
-            f.write(contenu_fichier)
-        return True, []
-
-    except Exception as e:
-        messages.append([f"Erreur lors de la création du fichier : {e}", "error"])
-        return False, messages
-
-
-def get_template_env(use_latex_delimiters: bool = False) -> Environment:
-    """Retourne l'environnement Jinja2 configuré pour les templates.
-
-    Cherche d'abord dans custom/templates/ puis dans templates/ pour permettre
-    la surcharge des templates par l'utilisateur.
-
-    Paramètres
-    ----------
-    use_latex_delimiters : bool, optional
-        Si True, utilise des délimiteurs compatibles LaTeX (<< >>, <% %>)
-        au lieu des délimiteurs standard ({{ }}, {% %}).
-        Défaut : False.
-
-    Retourne
-    --------
-    Environment
-        L'environnement Jinja2 avec support de surcharge de templates.
-    """
-    base_dir = Path(__file__).resolve().parents[1]
-    custom_templates_dir = base_dir / "custom" / "templates"
-    default_templates_dir = base_dir / "templates"
-
-    # ChoiceLoader essaie les loaders dans l'ordre : custom d'abord, puis défaut
-    loader = ChoiceLoader(
-        [
-            FileSystemLoader(custom_templates_dir),
-            FileSystemLoader(default_templates_dir),
-        ]
-    )
-
-    # Configuration selon le type de template
-    if use_latex_delimiters:
-        # Délimiteurs compatibles LaTeX pour éviter les conflits avec {}
-        env = Environment(
-            loader=loader,
-            autoescape=False,
-            trim_blocks=True,
-            lstrip_blocks=True,
-            block_start_string='<%',
-            block_end_string='%>',
-            variable_start_string='<<',
-            variable_end_string='>>',
-        )
-    else:
-        # Délimiteurs standard Jinja2
-        env = Environment(
-            loader=loader,
-            autoescape=select_autoescape(),
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
-
-    return env
+        return None, [[msg, "error"]]
 
 
 def scan_for_documents(
@@ -350,89 +268,57 @@ def scan_for_documents(
     return final_documents, messages
 
 
-def format_nom_documents_for_display(
-    documents: List[Dict[str, str]], max_length: int = 88
-) -> List[Dict[str, str]]:
-    """Ajoute des informations de formatage pour l'affichage des documents.
+def create_compilation_parameter_file(
+    chemin_dossier: Path, parametres: dict
+) -> Tuple[bool, List[List[str]]]:
+    """Crée un fichier de paramètres de compilation dans le dossier spécifié.
 
-    Ajoute une clé 'display_path' à chaque document contenant le chemin
-    tronqué pour l'affichage (limité à max_length caractères).
+    Le fichier est nommé "@parametres.pyUPSTIlatex.yaml" et contient les
+    paramètres de compilation au format YAML. Si le fichier existe déjà, il
+    sera écrasé.
 
     Paramètres
     ----------
-    documents : List[Dict[str, str]]
-        Liste des documents à formater. Chaque dict doit contenir au minimum
-        une clé 'path'.
-    max_length : int, optional
-        Longueur maximale du chemin d'affichage en caractères.
-        Défaut : 88.
+    chemin_dossier : Path
+        Le chemin du dossier où créer le fichier de paramètres.
+    parametres : dict
+        Dictionnaire des paramètres à inclure dans le fichier YAML.
 
     Retourne
     --------
-    List[Dict[str, str]]
-        La même liste de documents, modifiée en place avec ajout de
-        'display_path'.
+    Tuple[bool, List[List[str]]]
+        - bool : True si le fichier a été créé avec succès, False sinon.
+        - List[List[str]] : Liste de messages [message, flag] décrivant les
+          erreurs ou succès rencontrés lors de la création du fichier.
     """
-    _add_truncated_paths(documents, max_length)
-    return documents
+    cfg = load_config()
+    messages: List[List[str]] = []
+    nom_fichier = cfg.os.nom_fichier_parametres_compilation
+    chemin_fichier = chemin_dossier / nom_fichier
 
-
-def add_display_paths(documents: list[dict[str, str]]) -> list[dict[str, str]]:
-    """
-    Ajoute une clé 'display_path' à chaque dict, contenant le chemin relatif
-    par rapport au chemin commun de tous les documents.
-    """
-    if not documents:
-        return documents
-
-    # Extraire tous les chemins
-    paths = [d["path"] for d in documents]
-
-    # Trouver le chemin commun
-    common = os.path.commonpath(paths)
-
-    # Ajouter display_path
-    for d in documents:
-        d["display_path"] = os.path.relpath(d["path"], common)
-
-    return documents
-
-
-def display_version(version_pyupstilatex: int, version_latex: str) -> str:
-    """Retourne une chaîne de caractères affichable pour les versions détectées."""
-    if version_pyupstilatex is None or version_latex is None:
-        return "Inconnue"
-
-    if isinstance(version_pyupstilatex, int):
-        display_version = f"v{version_pyupstilatex}"
-    else:
-        display_version = str(version_pyupstilatex)
-
-    return f"{display_version} - {version_latex}"
-
-
-def read_json_config(
-    path: Optional[Path | str] = None,
-) -> tuple[Optional[dict], List[List[str]]]:
-    """Lit le fichier JSON de configuration.
-
-    Retourne un tuple `(data, messages)` où `data` est le dictionnaire lu
-    (ou `None` en cas d'erreur) et `messages` est une liste de paires
-    `[message, flag]` décrivant les erreurs/avertissements rencontrés.
-    """
     try:
-        if path is None:
-            json_path = Path(__file__).resolve().parents[1] / "pyUPSTIlatex.json"
-        else:
-            json_path = Path(path)
-        with json_path.open("r", encoding="utf-8") as f:
-            return json.load(f), []
-    except Exception:
-        msg = (
-            "Impossible de lire le fichier pyUPSTIlatex.json. "
-            "Vérifier s'il est bien présent à la racine du projet."
+        import yaml
+
+        # Générer le code YAML
+        code_yaml = yaml.dump(parametres, allow_unicode=True, sort_keys=False)
+
+        # Charger le template
+        env = get_template_env()
+        template = env.get_template("yaml/parametres_compilation_rapide.yaml.j2")
+
+        # Rendre le template avec les variables
+        contenu_fichier = template.render(
+            code_yaml=code_yaml, nom_fichier_yaml=nom_fichier
         )
-        return None, [[msg, "error"]]
+
+        # Écrire le fichier
+        with chemin_fichier.open("w", encoding="utf-8") as f:
+            f.write(contenu_fichier)
+        return True, []
+
+    except Exception as e:
+        messages.append([f"Erreur lors de la création du fichier : {e}", "error"])
+        return False, messages
 
 
 def create_yaml_for_poly(
@@ -834,6 +720,15 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
         "resultat_item",
     )
 
+    # On vérifie s'il y a bien des fichiers définis dans le YAML
+    if not yaml_data.get("fichiers"):
+        msg.info("Vérification de la présence de fichiers définis dans le YAML", "info")
+        msg.affiche_messages(
+            [["Aucun fichier défini dans le YAML", "error"]],
+            "resultat_item",
+        )
+        return False, []
+
     # === 2. Création de la page de garde ===
     msg.info("Création du fichier de page de garde", "info")
     messages_creation_pdg: List[List[str]] = []
@@ -1004,31 +899,50 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
 
     try:
         # Liste des fichiers à compiler dans l'ordre
-        liste_fichiers_a_combiner: List[str] = []
+        # On garde une correspondance entre les templates et les sources
+        liste_fichiers_a_combiner: List[dict] = []
         dossier_cible = cfg.os.dossier_cible_par_rapport_au_fichier_tex
+
+        # Page de garde (pas de fichier source, pas à trous)
         liste_fichiers_a_combiner.append(
-            chemin_page_de_garde_tex.parent
-            / dossier_cible
-            / (chemin_page_de_garde_tex.stem + "[suffixe].pdf")
+            {
+                "template": (
+                    chemin_page_de_garde_tex.parent
+                    / dossier_cible
+                    / (chemin_page_de_garde_tex.stem + "[suffixe].pdf")
+                ),
+                "source": None,
+                "est_a_trous": False,
+            }
         )
+
+        # Fichiers du poly
         for section_fichier in liste_fichiers:
             for chemin_fichier in section_fichier.get("liste", []):
                 liste_fichiers_a_combiner.append(
-                    Path(chemin_fichier).parent
-                    / dossier_cible
-                    / (Path(chemin_fichier).stem + "[suffixe].pdf")
+                    {
+                        "template": (
+                            Path(chemin_fichier).parent
+                            / dossier_cible
+                            / (Path(chemin_fichier).stem + "[suffixe].pdf")
+                        ),
+                        "source": chemin_fichier,
+                        "est_a_trous": None,  # Sera déterminé plus tard
+                    }
                 )
 
-        # On fait la liste des suffixes de documents à créer
+        # On fait la liste des versions de documents à créer
         pages_par_feuille = parametres_compilation.get("nb_pages_par_feuille", 2)
         pdf_a_compiler = [
             {
-                "suffixe": "",
+                "suffixe_poly": "",
+                "version": "eleve",
                 "pages_par_feuille": pages_par_feuille,
                 "affichage": "élève",
             },
             {
-                "suffixe": cfg.os.suffixe_nom_fichier_prof,
+                "suffixe_poly": cfg.os.suffixe_nom_fichier_prof,
+                "version": "prof",
                 "pages_par_feuille": pages_par_feuille,
                 "affichage": "prof",
             },
@@ -1045,7 +959,16 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
                     infos_version_accessible = VERSIONS_ACCESSIBLES_DISPONIBLES[
                         version_accessible
                     ]
-                    pdf_a_compiler.append(infos_version_accessible)
+                    pdf_a_compiler.append(
+                        {
+                            "suffixe_poly": infos_version_accessible["suffixe"],
+                            "version": version_accessible,
+                            "pages_par_feuille": pages_par_feuille,
+                            "affichage": infos_version_accessible.get(
+                                "affichage", version_accessible
+                            ),
+                        }
+                    )
 
     except Exception as e:
         messages_creation_pdf.append(
@@ -1066,14 +989,69 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
     for fichier_pdf in pdf_a_compiler:
         nom_fichier_poly = (
             f"{chemin_page_de_garde_tex.stem}{cfg.os.suffixe_nom_fichier_poly}"
-            f"{fichier_pdf['suffixe']}.pdf"
+            f"{fichier_pdf['suffixe_poly']}.pdf"
         )
         msg.info(f"Création du fichier PDF : {Path(nom_fichier_poly).name}", "info")
         chemin_fichier_poly = chemin_fichier_yaml.parent / nom_fichier_poly
-        liste_fichiers_a_combiner_avec_suffixe = [
-            str(fichier).replace("[suffixe]", fichier_pdf["suffixe"])
-            for fichier in liste_fichiers_a_combiner
-        ]
+
+        # Construire la liste avec les bons suffixes pour chaque fichier
+        liste_fichiers_a_combiner_avec_suffixe = []
+
+        for fichier_info in liste_fichiers_a_combiner:
+            # Déterminer le suffixe approprié pour ce fichier
+            if fichier_info["source"] is None:
+                # Page de garde : utiliser le suffixe du poly
+                suffixe = fichier_pdf["suffixe_poly"]
+            else:
+                # Fichier du poly : calculer le suffixe selon la version
+                # et si c'est un document à trous
+
+                # Charger le document si pas déjà fait
+                if fichier_info["est_a_trous"] is None:
+                    from .document import UPSTILatexDocument
+
+                    doc, _ = UPSTILatexDocument.from_path(fichier_info["source"])
+                    if doc:
+                        params_doc, _ = doc.get_compilation_parameters()
+                        if params_doc:
+                            fichier_info["est_a_trous"] = params_doc.get(
+                                "est_un_document_a_trous", False
+                            )
+                        else:
+                            fichier_info["est_a_trous"] = False
+                    else:
+                        fichier_info["est_a_trous"] = False
+
+                # Calculer le suffixe selon la version
+                if fichier_pdf["version"] == "eleve":
+                    # Version élève
+                    if fichier_info["est_a_trous"]:
+                        suffixe = cfg.os.suffixe_nom_fichier_a_trous
+                    else:
+                        suffixe = ""
+                elif fichier_pdf["version"] == "prof":
+                    # Version prof : toujours -prof
+                    suffixe = cfg.os.suffixe_nom_fichier_prof
+                elif fichier_pdf["version"] in VERSIONS_ACCESSIBLES_DISPONIBLES:
+                    # Version accessible
+                    if fichier_info["est_a_trous"]:
+                        suffixe = (
+                            cfg.os.suffixe_nom_fichier_a_trous
+                            + VERSIONS_ACCESSIBLES_DISPONIBLES[fichier_pdf["version"]][
+                                "suffixe"
+                            ]
+                        )
+                    else:
+                        suffixe = VERSIONS_ACCESSIBLES_DISPONIBLES[
+                            fichier_pdf["version"]
+                        ]["suffixe"]
+                else:
+                    suffixe = fichier_pdf["suffixe_poly"]
+
+            # Remplacer le placeholder par le suffixe calculé
+            chemin_pdf = str(fichier_info["template"]).replace("[suffixe]", suffixe)
+            liste_fichiers_a_combiner_avec_suffixe.append(chemin_pdf)
+
         resultat_combinaison, messages_combinaison = combine_pdf(
             liste_fichiers_a_combiner_avec_suffixe,
             chemin_fichier_poly,
@@ -1230,7 +1208,7 @@ def combine_pdf(
 
         messages.append(
             [
-                f"PDF créé avec succès : {chemin_output.name}",
+                "PDF créé avec succès",
                 "success",
             ]
         )
@@ -1244,6 +1222,377 @@ def combine_pdf(
             ]
         )
         return False, messages
+
+
+def prepare_for_pyupstilatex_v2(
+    infos_document: dict, thematique: str, msg
+) -> tuple[bool, List[List[str]]]:
+
+    cfg = load_config()
+    messages: List[List[str]] = []
+
+    # On récupère le dossier
+    chemin_fichier = Path(infos_document["path"])
+    dossier_document = chemin_fichier.parent
+
+    # === 1. Renommer le dossier latex sources ===
+    ancien_dossier_latex = dossier_document / cfg.legacy.dossier_latex_sources
+    nouveau_dossier_latex = dossier_document / cfg.os.dossier_latex_sources
+
+    if ancien_dossier_latex.exists() and ancien_dossier_latex.is_dir():
+        try:
+            if nouveau_dossier_latex.exists():
+                # Vérifier si c'est le même dossier (changement de casse uniquement)
+                if ancien_dossier_latex.resolve() == nouveau_dossier_latex.resolve():
+                    # Même dossier, on renomme pour changer la casse
+                    ancien_dossier_latex.rename(nouveau_dossier_latex)
+                else:
+                    # Dossier différent, conflit réel
+                    messages.append(
+                        [
+                            f"Le dossier {nouveau_dossier_latex.name} existe déjà, "
+                            f"impossible de renommer {ancien_dossier_latex.name}",
+                            "warning",
+                        ]
+                    )
+            else:
+                ancien_dossier_latex.rename(nouveau_dossier_latex)
+        except Exception as e:
+            messages.append(
+                [
+                    f"Erreur lors du renommage du dossier "
+                    f"{ancien_dossier_latex.name} : {e}",
+                    "warning",
+                ]
+            )
+
+    # === 2. Renommer le sous-dossier images ===
+    if nouveau_dossier_latex.exists():
+        dossier_latex_actuel = nouveau_dossier_latex
+    else:
+        dossier_latex_actuel = ancien_dossier_latex
+
+    if dossier_latex_actuel.exists() and dossier_latex_actuel.is_dir():
+        ancien_dossier_images = (
+            dossier_latex_actuel / cfg.legacy.dossier_latex_sources_images
+        )
+        nouveau_dossier_images = (
+            dossier_latex_actuel / cfg.os.dossier_latex_sources_images
+        )
+
+        if ancien_dossier_images.exists() and ancien_dossier_images.is_dir():
+            try:
+                if nouveau_dossier_images.exists():
+                    # Vérifier si c'est le même dossier (changement de casse uniquement)
+                    if (
+                        ancien_dossier_images.resolve()
+                        == nouveau_dossier_images.resolve()
+                    ):
+                        # Même dossier, on renomme pour changer la casse
+                        ancien_dossier_images.rename(nouveau_dossier_images)
+                    else:
+                        # Dossier différent, conflit réel
+                        messages.append(
+                            [
+                                f"Le dossier {nouveau_dossier_images.name} existe déjà, "
+                                f"impossible de renommer {ancien_dossier_images.name}",
+                                "warning",
+                            ]
+                        )
+                else:
+                    ancien_dossier_images.rename(nouveau_dossier_images)
+
+            except Exception as e:
+                messages.append(
+                    [
+                        f"Erreur lors du renommage du sous-dossier "
+                        f"{ancien_dossier_images.name} : {e}",
+                        "warning",
+                    ]
+                )
+
+    # === 3. Modifier les fichiers tex pour modifier src et images ===
+    from .document import UPSTILatexDocument
+
+    doc, doc_errors = UPSTILatexDocument.from_path(str(chemin_fichier))
+    if doc_errors:
+        messages.extend(doc_errors)
+
+    if doc is None or not doc.is_readable:
+        messages.append(
+            [
+                f"Impossible de lire le fichier {chemin_fichier.name} "
+                "pour effectuer les remplacements",
+                "error",
+            ]
+        )
+        return False, messages
+
+    # Récupérer le contenu actuel du document
+    contenu_fichier = doc.content
+    if contenu_fichier is None:
+        messages.append(
+            [
+                f"Impossible de récupérer le contenu du fichier "
+                f"{chemin_fichier.name}",
+                "error",
+            ]
+        )
+        return False, messages
+
+    # Effectuer les remplacements
+    contenu_modifie = contenu_fichier.replace(
+        cfg.legacy.dossier_latex_sources + "/", cfg.os.dossier_latex_sources + "/"
+    ).replace(
+        cfg.legacy.dossier_latex_sources_images + "/",
+        cfg.os.dossier_latex_sources_images + "/",
+    )
+
+    # Sauvegarder si le contenu a changé
+    if contenu_modifie != contenu_fichier:
+        doc.content = contenu_modifie
+        success_save, messages_save = doc.save()
+        if not success_save:
+            messages.extend(messages_save)
+            messages.append(
+                [
+                    f"Erreur lors de l'écriture du fichier " f"{chemin_fichier.name}",
+                    "error",
+                ]
+            )
+            return False, messages
+        messages.append(
+            [f"Fichier {chemin_fichier.name} modifié avec succès", "success"]
+        )
+
+    # === 4. Récupérer les infos de @parametres.upsti.ini ===
+    # TODO: à implémenter
+
+    # === 5. Créer le fichier yaml ===
+    '''
+    thematique: dynamique
+    description: |
+        --A compléter--
+    '''
+    # TODO: à implémenter
+
+    # === 6. Supprimer le fichier @parametres.upsti.ini ===
+    # TODO: à implémenter
+
+    return True, messages
+
+
+def get_template_env(use_latex_delimiters: bool = False) -> Environment:
+    """Retourne l'environnement Jinja2 configuré pour les templates.
+
+    Cherche d'abord dans custom/templates/ puis dans templates/ pour permettre
+    la surcharge des templates par l'utilisateur.
+
+    Paramètres
+    ----------
+    use_latex_delimiters : bool, optional
+        Si True, utilise des délimiteurs compatibles LaTeX (<< >>, <% %>)
+        au lieu des délimiteurs standard ({{ }}, {% %}).
+        Défaut : False.
+
+    Retourne
+    --------
+    Environment
+        L'environnement Jinja2 avec support de surcharge de templates.
+    """
+    base_dir = Path(__file__).resolve().parents[1]
+    custom_templates_dir = base_dir / "custom" / "templates"
+    default_templates_dir = base_dir / "templates"
+
+    # ChoiceLoader essaie les loaders dans l'ordre : custom d'abord, puis défaut
+    loader = ChoiceLoader(
+        [
+            FileSystemLoader(custom_templates_dir),
+            FileSystemLoader(default_templates_dir),
+        ]
+    )
+
+    # Configuration selon le type de template
+    if use_latex_delimiters:
+        # Délimiteurs compatibles LaTeX pour éviter les conflits avec {}
+        env = Environment(
+            loader=loader,
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+            block_start_string='<%',
+            block_end_string='%>',
+            variable_start_string='<<',
+            variable_end_string='>>',
+        )
+    else:
+        # Délimiteurs standard Jinja2
+        env = Environment(
+            loader=loader,
+            autoescape=select_autoescape(),
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
+    return env
+
+
+def check_path_readable(path: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """Vérifie l'accessibilité en lecture d'un fichier.
+
+    Teste si le chemin existe, est un fichier, et peut être lu en tant que
+    fichier texte. Tente d'abord un décodage UTF-8, puis latin-1 en fallback.
+
+    Paramètres
+    ----------
+    path : str
+        Chemin du fichier à vérifier.
+
+    Retourne
+    --------
+    Tuple[bool, Optional[str], Optional[str]]
+        Tuple (accessible, raison, flag) où :
+        - accessible : True si le fichier peut être lu, False sinon.
+        - raison : None si accessible, sinon message décrivant l'erreur ou
+          avertissement (ex: "Fichier lu en latin-1 (fallback d'encodage)").
+        - flag : None si OK, 'warning' si fallback d'encodage utilisé,
+          'fatal_error' si lecture impossible.
+
+    Exemples
+    --------
+    >>> check_path_readable("/chemin/fichier.txt")
+    (True, None, None)
+    >>> check_path_readable("/chemin/fichier_inexistant.txt")
+    (False, "Fichier introuvable", "fatal_error")
+    """
+    p = Path(path)
+    if not p.exists():
+        return False, "Fichier introuvable", "fatal_error"
+    if not p.is_file():
+        return False, "N'est pas un fichier", "fatal_error"
+    try:
+        # Lecture d'un octet pour forcer le décodage (et déclencher
+        # UnicodeDecodeError si l'encodage est incorrect).
+        # Lire 0 octet n'effectue pas de décodage.
+        with p.open("r", encoding="utf-8") as f:
+            f.read(1)
+    except UnicodeDecodeError:
+        # Tentative de fallback en latin-1 — ne lèvera pas d'UnicodeDecodeError
+        try:
+            with p.open("r", encoding="latin-1") as f:
+                f.read(1)
+        except Exception as e:
+            return False, f"Impossible de lire: {e}", "fatal_error"
+        else:
+            return True, "Fichier lu en latin-1 (fallback d'encodage)", "warning"
+    except Exception as e:
+        return False, f"Impossible de lire: {e}", "fatal_error"
+    return True, None, None
+
+
+def check_path_writable(path: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """Vérifie l'accessibilité en écriture d'un fichier existant.
+
+    Teste si le fichier existe et peut être ouvert en mode écriture.
+    N'essaie PAS de créer le fichier s'il n'existe pas.
+
+    Paramètres
+    ----------
+    path : str
+        Chemin du fichier à vérifier.
+
+    Retourne
+    --------
+    Tuple[bool, Optional[str], Optional[str]]
+        Tuple (accessible, raison, flag) où :
+        - accessible : True si le fichier peut être modifié, False sinon.
+        - raison : None si accessible, sinon message décrivant l'erreur
+          (ex: "Permission refusée", "Fichier introuvable").
+        - flag : None si OK, 'fatal_error' si écriture impossible.
+
+    Exemples
+    --------
+    >>> check_path_writable("/chemin/fichier.txt")
+    (True, None, None)
+    >>> check_path_writable("/chemin/readonly.txt")
+    (False, "Permission refusée: ...", "fatal_error")
+    """
+    p = Path(path)
+    if not p.exists():
+        return False, "Fichier introuvable", "fatal_error"
+    if not p.is_file():
+        return False, "N'est pas un fichier", "fatal_error"
+    try:
+        # 'r+b' requiert que le fichier existe et autorise l'écriture sans le
+        # tronquer
+        with p.open("r+b") as _:
+            pass
+    except PermissionError as e:
+        return False, f"Permission refusée: {e}", "fatal_error"
+    except Exception as e:
+        return False, f"Impossible d'ouvrir en écriture: {e}", "fatal_error"
+    return True, None, None
+
+
+def add_display_paths(documents: list[dict[str, str]]) -> list[dict[str, str]]:
+    """
+    Ajoute une clé 'display_path' à chaque dict, contenant le chemin relatif
+    par rapport au chemin commun de tous les documents.
+    """
+    if not documents:
+        return documents
+
+    # Extraire tous les chemins
+    paths = [d["path"] for d in documents]
+
+    # Trouver le chemin commun
+    common = os.path.commonpath(paths)
+
+    # Ajouter display_path
+    for d in documents:
+        d["display_path"] = os.path.relpath(d["path"], common)
+
+    return documents
+
+
+def display_version(version_pyupstilatex: int, version_latex: str) -> str:
+    """Retourne une chaîne de caractères affichable pour les versions détectées."""
+    if version_pyupstilatex is None or version_latex is None:
+        return "Inconnue"
+
+    if isinstance(version_pyupstilatex, int):
+        display_version = f"v{version_pyupstilatex}"
+    else:
+        display_version = str(version_pyupstilatex)
+
+    return f"{display_version} - {version_latex}"
+
+
+def format_nom_documents_for_display(
+    documents: List[Dict[str, str]], max_length: int = 88
+) -> List[Dict[str, str]]:
+    """Ajoute des informations de formatage pour l'affichage des documents.
+
+    Ajoute une clé 'display_path' à chaque document contenant le chemin
+    tronqué pour l'affichage (limité à max_length caractères).
+
+    Paramètres
+    ----------
+    documents : List[Dict[str, str]]
+        Liste des documents à formater. Chaque dict doit contenir au minimum
+        une clé 'path'.
+    max_length : int, optional
+        Longueur maximale du chemin d'affichage en caractères.
+        Défaut : 88.
+
+    Retourne
+    --------
+    List[Dict[str, str]]
+        La même liste de documents, modifiée en place avec ajout de
+        'display_path'.
+    """
+    _add_truncated_paths(documents, max_length)
+    return documents
 
 
 def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) -> None:

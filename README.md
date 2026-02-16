@@ -1,5 +1,7 @@
 # pyUPSTIlatex
 
+![Logo](integration/logo/pyUPSTIlatex.png)
+
 Utilitaire pour lire, parser et éditer des fichiers UPSTI_LaTeX.
 
 ## Install
