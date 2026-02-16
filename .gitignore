@@ -4,6 +4,8 @@ __pycache__/
 .vscode/
 dist/
 work/
+tests/
+scripts/
 build/
 *.egg-info
 *.xlsx
