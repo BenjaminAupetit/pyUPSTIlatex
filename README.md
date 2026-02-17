@@ -35,6 +35,16 @@ En savoir plus en consultant le wiki : [Concepts et structure du projet](https:/
 
 - **Création des en-têtes et pieds de page LaTeX** à partir de templates générés par pyUPSTIlatex
 
+## Releases
+
+La version actuelle est **v2.0.0** (beta 1).
+
+Pour télécharger la dernière version stable ou consulter l'historique complet des versions, rendez-vous sur la page :
+
+**[Releases GitHub](https://github.com/ebigeard/pyUPSTIlatex/releases)**
+
+Consultez également le [CHANGELOG.md](CHANGELOG.md) pour le détail des modifications entre chaque version.
+
 ## Installation
 
 ### Prérequis
