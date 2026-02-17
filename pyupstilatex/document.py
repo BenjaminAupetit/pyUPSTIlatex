@@ -4,7 +4,7 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import yaml
 from slugify import slugify
@@ -25,10 +25,6 @@ from .handlers import (
     HandlerPyUpstiLatexV2,
 )
 from .logger import MessageHandler, NoOpMessageHandler
-from .storage import FileSystemStorage, StorageProtocol
-from .utils import (
-    check_types,
-)
 
 
 @dataclass
@@ -45,8 +41,6 @@ class UPSTILatexDocument:
     ---------
     source : str
         Chemin vers le fichier source .tex
-    storage : StorageProtocol
-        Backend de stockage (par défaut : système de fichiers local)
     strict : bool
         Si True, lève des exceptions en cas d'erreur de lecture
     require_writable : bool
@@ -57,7 +51,6 @@ class UPSTILatexDocument:
 
     # === CHAMPS PUBLICS ===
     source: str
-    storage: StorageProtocol = field(default_factory=FileSystemStorage)
     strict: bool = False
     require_writable: bool = False
     msg: MessageHandler = field(default_factory=NoOpMessageHandler)
@@ -86,7 +79,6 @@ class UPSTILatexDocument:
         """Initialise l'accès fichier via DocumentFile."""
         self._file = DocumentFile(
             source=self.source,
-            storage=self.storage,
             strict=self.strict,
             require_writable=self.require_writable,
         )
@@ -101,7 +93,6 @@ class UPSTILatexDocument:
         path: str,
         metadata: Dict,
         version: str = "upsti-latex",
-        storage: Optional[StorageProtocol] = None,
         *,
         strict: bool = False,
         require_writable: bool = True,
@@ -123,8 +114,6 @@ class UPSTILatexDocument:
         version : str, optional
             Version du document à créer ("UPSTI_Document" ou "upsti-latex").
             Défaut : "upsti-latex".
-        storage : Optional[StorageProtocol], optional
-            Backend de stockage. Défaut : FileSystemStorage.
         strict : bool, optional
             Si True, lève des exceptions en cas d'erreur. Défaut : False.
         require_writable : bool, optional
@@ -167,18 +156,7 @@ class UPSTILatexDocument:
             )
             return None, errors
 
-        # 2. Créer une instance temporaire pour accéder aux méthodes de validation
-        # (le fichier n'existe pas encore, donc on ne peut pas initialiser normalement)
-        temp_doc = cls._create_bare_instance(
-            source=str(file_path),
-            storage=storage,
-            strict=strict,
-            require_writable=require_writable,
-            msg=msg_handler,
-            version=version,
-        )
-
-        # Générer le YAML avec une ligne par clé principale
+        # 2. Générer le YAML avec une ligne par clé principale
         # et les valeurs complexes (dict/list) en format inline
         yaml_lines = []
         for key, value in metadata.items():
@@ -232,7 +210,6 @@ class UPSTILatexDocument:
         try:
             doc = cls(
                 source=str(file_path),
-                storage=temp_doc.storage,
                 strict=strict,
                 require_writable=require_writable,
                 msg=msg_handler,
@@ -252,7 +229,6 @@ class UPSTILatexDocument:
     def from_path(
         cls,
         path: str,
-        storage: Optional[StorageProtocol] = None,
         *,
         strict: bool = False,
         require_writable: bool = False,
@@ -262,7 +238,6 @@ class UPSTILatexDocument:
         try:
             doc = cls(
                 source=path,
-                storage=(storage or FileSystemStorage()),
                 strict=strict,
                 require_writable=require_writable,
                 msg=(msg or NoOpMessageHandler()),
@@ -1532,7 +1507,6 @@ class UPSTILatexDocument:
             self.source = str(nouveau_chemin)
             self._file = DocumentFile(
                 source=self.source,
-                storage=self.storage,
                 strict=self.strict,
                 require_writable=self.require_writable,
             )
@@ -2578,7 +2552,6 @@ class UPSTILatexDocument:
     def _create_bare_instance(
         cls,
         source: str,
-        storage: Optional[StorageProtocol] = None,
         *,
         strict: bool = False,
         require_writable: bool = False,
@@ -2594,8 +2567,6 @@ class UPSTILatexDocument:
         ----------
         source : str
             Chemin du fichier source.
-        storage : Optional[StorageProtocol], optional
-            Backend de stockage.
         strict : bool, optional
             Mode strict.
         require_writable : bool, optional
@@ -2612,7 +2583,6 @@ class UPSTILatexDocument:
         """
         instance = cls.__new__(cls)
         instance.source = source
-        instance.storage = storage or FileSystemStorage()
         instance.strict = strict
         instance.require_writable = require_writable
         instance.msg = msg or NoOpMessageHandler()
@@ -3284,3 +3254,57 @@ class UPSTILatexDocument:
                 flag,
             ]
         )
+
+
+# ======================================================================================
+# FONCTIONS UTILITAIRES
+# ======================================================================================
+def check_types(obj: Any, expected_types: Union[str, List[str]]) -> bool:
+    """Vérifie si un objet correspond à un ou plusieurs types attendus.
+
+    Supporte des types standards et des types étendus (ex: "text" pour str/int/float).
+
+    Paramètres
+    ----------
+    obj : Any
+        L'objet à vérifier.
+    expected_types : str | List[str]
+        Type(s) attendu(s). Peut être une chaîne unique ou une liste de chaînes.
+        Types supportés : 'str', 'int', 'float', 'dict', 'list', 'tuple', 'bool',
+        'set', 'text' (str, int ou float).
+
+    Retourne
+    --------
+    bool
+        True si l'objet correspond à au moins un des types attendus, False sinon.
+
+    Exemples
+    --------
+    >>> check_types("abc", "str")
+    True
+    >>> check_types(123, "text")
+    True
+    >>> check_types(3.14, ["str", "text"])
+    True
+    """
+    type_map = {
+        "str": str,
+        "int": int,
+        "float": float,
+        "dict": dict,
+        "list": list,
+        "tuple": tuple,
+        "bool": bool,
+        "set": set,
+        "text": (str, int, float),
+    }
+
+    if isinstance(expected_types, str):
+        expected_types = [expected_types]
+
+    for type_name in expected_types:
+        cls = type_map.get(type_name)
+        if cls and isinstance(obj, cls):
+            return True
+
+    return False

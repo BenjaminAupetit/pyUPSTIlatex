@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "GPL-3.0-only"
 keywords = ["latex", "upsti", "education", "document", "parser"]
-authors = [{name = "Emmanuel Bigeard", email = "s2i@bigeard.me"}]
+authors = [{ name = "Emmanuel Bigeard", email = "s2i@bigeard.me" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Education",
@@ -22,11 +22,20 @@ classifiers = [
     "Topic :: Text Processing :: Markup :: LaTeX",
 ]
 dependencies = [
-	"PyYAML>=6.0",
-	"regex>=2023.8.8",
-	"click>=8.0",
-	"python-dotenv>=1.0.0",
-	"tomli>=2.0.0; python_version < '3.11'",
+    "PyYAML>=6.0",
+    "regex>=2023.8.8",
+    "click>=8.0",
+    "python-dotenv>=1.0.0",
+    "tomli>=2.0.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1",
+    "isort>=5.0",
 ]
 
 [project.urls]
@@ -58,8 +67,8 @@ line_length = 88
 [tool.flake8]
 max-line-length = 88
 extend-ignore = [
-    "E203",  # conflit avec Black sur les slices
-    "W503",  # conflit avec Black sur les opérateurs binaires
+    "E203", # conflit avec Black sur les slices
+    "W503", # conflit avec Black sur les opérateurs binaires
 ]
 
 [tool.ruff]

@@ -1867,7 +1867,7 @@ def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) 
     """Ajoute des chemins tronqués pour l'affichage dans une liste de documents.
 
     Modifie la liste en place en ajoutant une clé 'display_path' avec un chemin
-    tronqué à max_length caractères. Utilise le format "C:\...\fichier.tex" pour
+    tronqué à max_length caractères. Utilise le format "C:\\...\\fichier.tex" pour
     les chemins trop longs.
 
     Paramètres

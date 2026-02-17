@@ -4,7 +4,6 @@ from typing import List, Optional
 
 from .exceptions import DocumentParseError
 from .file_helpers import check_path_readable, check_path_writable
-from .storage import FileSystemStorage, StorageProtocol
 
 
 @dataclass
@@ -18,8 +17,6 @@ class DocumentFile:
     ----------
     source : str
         Chemin du fichier source.
-    storage : StorageProtocol, optional
-        Backend de stockage à utiliser. Défaut : FileSystemStorage().
     strict : bool, optional
         Si True, lève des exceptions en cas de problème. Défaut : False.
     require_writable : bool, optional
@@ -27,7 +24,6 @@ class DocumentFile:
     """
 
     source: str
-    storage: StorageProtocol = field(default_factory=FileSystemStorage)
     strict: bool = False
     require_writable: bool = False
 
@@ -42,7 +38,7 @@ class DocumentFile:
     _raw: Optional[str] = field(default=None, init=False)
 
     def __post_init__(self):
-        """Initialise les états du fichier selon le type de stockage.
+        """Initialise les états du fichier.
 
         Vérifie l'existence, la lisibilité et l'écritabilité du fichier.
         Détecte les fichiers binaires et les problèmes d'encodage.
@@ -55,95 +51,70 @@ class DocumentFile:
             en mode strict.
         """
         try:
-            # Cas 1 : stockage local — on peut faire des tests système explicites
-            if isinstance(self.storage, FileSystemStorage):
-                p = Path(self.source)
-                self._file_exists = p.is_file()
+            p = Path(self.source)
+            self._file_exists = p.is_file()
 
-                # Refuse explicitement tout fichier qui n'est pas un .tex ou un .ltx
-                if p.suffix.lower() not in [".tex", ".ltx"]:
-                    self._file_readable = False
-                    self._file_readable_reason = "Le fichier n'est pas un fichier tex"
-                    self._file_readable_flag = "fatal_error"
-                    # Écriture : si le fichier existe on indique l'état,
-                    # sinon on signale inexistant
-                    if self._file_exists:
-                        ok_w, reason_w, _ = check_path_writable(self.source)
-                        self._file_writable = bool(ok_w)
-                        self._file_writable_reason = reason_w
-                    else:
-                        self._file_writable = False
-                        self._file_writable_reason = "Fichier inexistant"
+            # Refuse explicitement tout fichier qui n'est pas un .tex ou un .ltx
+            if p.suffix.lower() not in [".tex", ".ltx"]:
+                self._file_readable = False
+                self._file_readable_reason = "Le fichier n'est pas un fichier tex"
+                self._file_readable_flag = "fatal_error"
+                # Écriture : si le fichier existe on indique l'état,
+                # sinon on signale inexistant
+                if self._file_exists:
+                    ok_w, reason_w, _ = check_path_writable(self.source)
+                    self._file_writable = bool(ok_w)
+                    self._file_writable_reason = reason_w
                 else:
-                    # Petit test heuristique pour repérer les binaires
-                    try:
-                        with p.open("rb") as f:
-                            sample = f.read(4096)
-                    except Exception as e:
-                        # Impossible d'ouvrir en binaire -> on considèrera illisible
-                        self._file_readable = False
-                        self._file_readable_reason = f"Lecture binaire impossible: {e}"
-                        self._file_readable_flag = "fatal_error"
-                        self._file_writable = None
-                        self._file_writable_reason = None
-                    else:
-                        if not sample:
-                            # Fichier vide -> considérer lisible (UTF-8)
-                            is_binary = False
-                        else:
-                            # Seuil simple: présence d'un octet nul => binaire
-                            is_binary = b"\x00" in sample
-
-                        if is_binary:
-                            self._file_readable = False
-                            self._file_readable_reason = "Fichier binaire détecté"
-                            self._file_readable_flag = "fatal_error"
-                            # Écriture : on laisse l'état vérifié si possible
-                            if self._file_exists:
-                                ok_w, reason_w, _ = check_path_writable(self.source)
-                                self._file_writable = bool(ok_w)
-                                self._file_writable_reason = reason_w
-                            else:
-                                self._file_writable = False
-                                self._file_writable_reason = "Fichier inexistant"
-                        else:
-                            # Texte plausible -> faire la vérification d'encodage
-                            ok_r, reason_r, flag_r = check_path_readable(self.source)
-                            self._file_readable = bool(ok_r)
-                            self._file_readable_reason = reason_r
-                            self._file_readable_flag = flag_r
-                            if flag_r == "warning":
-                                # mémoriser l'encodage fallback pour read()
-                                self._read_encoding = "latin-1"
-                            # Écriture
-                            self._file_writable, self._file_writable_reason, _ = (
-                                check_path_writable(self.source)
-                                if self._file_exists
-                                else (False, "Fichier inexistant", "fatal_error")
-                            )
-
-            # Cas 2 : stockage distant — on ne peut que tester par lecture réelle
+                    self._file_writable = False
+                    self._file_writable_reason = "Fichier inexistant"
             else:
+                # Petit test heuristique pour repérer les binaires
                 try:
-                    _ = self.storage.read_text(self.source)
-                    self._file_exists = True
-                    self._file_readable = True
-                    self._file_readable_reason = None
-                    self._file_readable_flag = None
-                except UnicodeDecodeError as e:
-                    self._file_exists = True
-                    self._file_readable = False
-                    self._file_readable_reason = f"Encodage illisible: {e}"
-                    self._file_readable_flag = "fatal_error"
+                    with p.open("rb") as f:
+                        sample = f.read(4096)
                 except Exception as e:
-                    self._file_exists = False
+                    # Impossible d'ouvrir en binaire -> on considèrera illisible
                     self._file_readable = False
-                    self._file_readable_reason = f"Lecture impossible: {e}"
+                    self._file_readable_reason = f"Lecture binaire impossible: {e}"
                     self._file_readable_flag = "fatal_error"
+                    self._file_writable = None
+                    self._file_writable_reason = None
+                else:
+                    if not sample:
+                        # Fichier vide -> considérer lisible (UTF-8)
+                        is_binary = False
+                    else:
+                        # Seuil simple: présence d'un octet nul => binaire
+                        is_binary = b"\x00" in sample
 
-                # Écriture non testable pour les storages distants
-                self._file_writable = None
-                self._file_writable_reason = None
+                    if is_binary:
+                        self._file_readable = False
+                        self._file_readable_reason = "Fichier binaire détecté"
+                        self._file_readable_flag = "fatal_error"
+                        # Écriture : on laisse l'état vérifié si possible
+                        if self._file_exists:
+                            ok_w, reason_w, _ = check_path_writable(self.source)
+                            self._file_writable = bool(ok_w)
+                            self._file_writable_reason = reason_w
+                        else:
+                            self._file_writable = False
+                            self._file_writable_reason = "Fichier inexistant"
+                    else:
+                        # Texte plausible -> faire la vérification d'encodage
+                        ok_r, reason_r, flag_r = check_path_readable(self.source)
+                        self._file_readable = bool(ok_r)
+                        self._file_readable_reason = reason_r
+                        self._file_readable_flag = flag_r
+                        if flag_r == "warning":
+                            # mémoriser l'encodage fallback pour read()
+                            self._read_encoding = "latin-1"
+                        # Écriture
+                        self._file_writable, self._file_writable_reason, _ = (
+                            check_path_writable(self.source)
+                            if self._file_exists
+                            else (False, "Fichier inexistant", "fatal_error")
+                        )
 
             # Mode strict : on lève des erreurs précises si accès impossible
             if self.strict:
@@ -398,14 +369,9 @@ class DocumentFile:
         """
         if self._raw is None:
             try:
-                # Si on détecte un encoding fallback pour le stockage local, l'utiliser
-                if isinstance(self.storage, FileSystemStorage) and self._read_encoding:
-                    p = Path(self.source)
-                    self._raw = p.read_text(
-                        encoding=self._read_encoding, errors="strict"
-                    )
-                else:
-                    self._raw = self.storage.read_text(self.source)
+                p = Path(self.source)
+                encoding = self._read_encoding or "utf-8"
+                self._raw = p.read_text(encoding=encoding, errors="strict")
             except Exception as e:
                 raise DocumentParseError(f"Unable to read source {self.source}: {e}")
         return self._raw
@@ -438,11 +404,7 @@ class DocumentFile:
                 ]
 
             # Écrire le fichier
-            if isinstance(self.storage, FileSystemStorage):
-                Path(self.source).write_text(content, encoding=encoding)
-            else:
-                # Pour les autres types de storage, utiliser leur méthode write_text si disponible
-                self.storage.write_text(self.source, content)
+            Path(self.source).write_text(content, encoding=encoding)
 
             # Invalider le cache de lecture
             self._raw = None
