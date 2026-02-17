@@ -39,11 +39,9 @@ En savoir plus en consultant le wiki : [Concepts et structure du projet](https:/
 
 La version actuelle est **v2.0.0** (beta 1).
 
-Pour télécharger la dernière version stable ou consulter l'historique complet des versions, rendez-vous sur la page :
+Pour télécharger la dernière version stable ou consulter l'historique complet des versions : **[Releases GitHub](https://github.com/ebigeard/pyUPSTIlatex/releases)**
 
-**[Releases GitHub](https://github.com/ebigeard/pyUPSTIlatex/releases)**
-
-Consultez également le [CHANGELOG.md](CHANGELOG.md) pour le détail des modifications entre chaque version.
+Consulter le [CHANGELOG.md](CHANGELOG.md) pour le détail des modifications entre chaque version.
 
 ## Installation
 
