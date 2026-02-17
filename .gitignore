@@ -10,6 +10,7 @@ build/
 *.egg-info
 *.xlsx
 TODO.txt
+TODO.md
 
 # Conserver le dossier `custom/` et `custom/README.md`, ignorer les sous-dossiers
 custom/*

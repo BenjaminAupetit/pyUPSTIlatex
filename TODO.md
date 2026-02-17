@@ -9,19 +9,10 @@
 - Coder `\_generate_UPSTI_Document_tex_file`
 - Combiner tous les polys de TD en un seul, avec pagination qui va bien.
 
-### création des input tex
+### Création des input tex
 
 - Faire un dossier de templates par défaut avec possibilité d'override (avec les images aussi, et les packages) et possibilité de spécifi la variante dans le fichier YAML (d'abord on regarde si le nom du template spécifié est un sous_dossier de templates\custom_EB, sinon, on regarde dans template\defaut). On peut spécifier le nom du template dans le .env ou dans le .YAML, et la variante du template (colle1, colle2, cours1, etc...) dans le fichier YAML uniqument.
 
 ### Template upsti-latex
 
 - Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
-
-### Déploiement
-
-## Release
-
-- Peaufiner le fichier README.md
-- Faire une copie vide du fichier .env pour la distrib
-- Faire un .env exemple
-- Créer l'icône pyUPSTIlatex.ico

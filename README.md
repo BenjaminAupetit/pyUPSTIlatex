@@ -142,10 +142,10 @@ Consultez le wiki [Configuration avancée](https://github.com/ebigeard/pyUPSTIla
 La **documentation complète** est disponible sur le [**Wiki GitHub**](https://github.com/ebigeard/pyUPSTIlatex/wiki) :
 
 1. [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
-2. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration)
+2. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation)
 3. [Préparation de l'environnemnt pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
-4. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/CLI)
-5. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Polys)
+4. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/Commandes-CLI)
+5. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Tâches-usuelles)
 
 ## Exemples d'utilisation
 
