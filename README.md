@@ -1,7 +1,7 @@
 # pyUPSTIlatex
 
 <div align="center">
-  <img src="integration/icones_et_logos/pyUPSTIlatex.png" alt="pyUPSTIlatex Logo" width="200"/>
+  <img src="integration/icones_et_logos/pyUPSTIlatex.png" alt="Logo pyUPSTIlatex" width="200"/>
   
   ![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)
   ![Version](https://img.shields.io/badge/version-2.0.0-green)
@@ -17,7 +17,7 @@ Il peut néanmoins être adapté à n'importe quel niveau ou discipline, moyenna
 
 Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIlatex simplifie la gestion de documents pédagogiques (cours, TD, TP, colles) en automatisant la compilation, le versionnage, l'upload FTP et la génération de polys.
 
-## ✨ Fonctionnalités principales
+## Fonctionnalités principales
 
 - **Compilation intelligente** avec gestion des versions élève/prof/documents à compléter, etc.
 - **Versions accessibles** génération automatique de documents accessibles : dys, déficients visuels...
@@ -117,42 +117,6 @@ pyUPSTIlatex poly chemin/vers/dossier/_poly/poly.yaml
 pyUPSTIlatex update-config
 ```
 
-## Structure du projet
-
-```text
-pyUPSTIlatex/
-├── pyupstilatex/               # Code source principal
-│   ├── config/                 # Configuration par défaut
-│   │   ├── pyUPSTIlatex.json   # Possiblité de mettre à jour par le CLI
-│   │   └── config.default.toml # Configuration métier par défaut
-│   ├── accessibilite.py        # Configuration des fichiers accessibles
-│   ├── cli.py                  # Interface en ligne de commande
-│   ├── config.py               # Gestion de la configuration
-│   ├── document.py             # Classe principale UPSTILatexDocument
-│   ├── document_registery.py   # Pour permettre la surcharge de UPSTILatexDocument
-│   ├── exceptions.py           # Gestion des erreurs (pas ouf..)
-│   ├── file_helpers.py         # Utilitaires de manipulation de fichiers
-│   ├── file_latex_helpers.py   # Parsing LaTeX
-│   ├── file_system.py          # Gestion I/O sur le disque
-│   ├── handlers.py             # Handlers de version (v1, v2)
-│   └── logger.py               # Système de messages dans la console et logger
-├── templates/                  # Templates LaTeX par défaut
-│   ├── latex/                  # Templates de documents
-│   └── yaml/                   # Templates YAML
-├── integration/                # Fichiers d'intégration OS
-│   ├── commandes_windows/      # Scripts .cmd
-│   ├── icones_et_logos/        # Icônes et logos
-│   └── yaml/                   # Configs YAML
-├── custom/                     # Configuration personnalisée (non versionné)
-│   ├── .env                    # Secrets (FTP, etc.)
-│   ├── .env.template           # Secrets (Template à dupliquer)
-│   ├── config.toml             # Surcharge de configuration
-│   ├── config.toml.template    # Surcharge de configuration (Template à dupliquer)
-│   ├── document.py.template    # Template de classe personnalisée
-│   └── templates/              # Overrides des templates LaTeX et YAML
-└── exemples/                   # Exemples
-```
-
 ## Configuration
 
 pyUPSTIlatex utilise une **configuration en cascade** :
@@ -173,17 +137,15 @@ pyUPSTIlatex utilise une **configuration en cascade** :
 
 Consultez le wiki [Configuration avancée](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration) pour le guide complet.
 
-## 📚 Documentation
+## Documentation
 
 La **documentation complète** est disponible sur le [**Wiki GitHub**](https://github.com/ebigeard/pyUPSTIlatex/wiki) :
 
-- [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Installation)
-- [Configuration avancée](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration)
-- [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/CLI)
-- [Création de documents](https://github.com/ebigeard/pyUPSTIlatex/wiki/Documents)
-- [Génération de polys](https://github.com/ebigeard/pyUPSTIlatex/wiki/Polys)
-- [API Python](https://github.com/ebigeard/pyUPSTIlatex/wiki/API)
-- [Migration depuis v1](https://github.com/ebigeard/pyUPSTIlatex/wiki/Migration)
+1. [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
+2. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration)
+3. [Préparation de l'environnemnt pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
+4. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/CLI)
+5. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Polys)
 
 ## Exemples d'utilisation
 
@@ -260,7 +222,7 @@ Ce projet est sous licence **GNU General Public License v3.0**. Voir le fichier 
 - [Raphaël Allais](https://allais.eu/), dont les packages LaTeX pour la SI m'ont servi de base pour la création d'`UPSTI_Document`
 - Tous les collègues qui utilisent `UPSTI_Document` pour concevoir leurs documents pédagogiques (et qui ont eu la patience de lire mes documentations vaguement rédigées)
 - Tous les collègues qui partagent leur travail sur des sites perso
-- L'UPSTI et la communauté des enseignants de CPGE S2I
+- L'[UPSTI](https://upsti.fr) (Union des Professeurs de Sciences et Techniques Industrielles) et la communauté des enseignants de CPGE S2I
 
 ## Changelog
 
@@ -271,3 +233,39 @@ Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique des versions.
 - **Bugs report** : [GitHub Issues](https://github.com/ebigeard/pyUPSTIlatex/issues)
 - **Discussions** : [GitHub Discussions](https://github.com/ebigeard/pyUPSTIlatex/discussions)
 - **Documentation** : [Wiki](https://github.com/ebigeard/pyUPSTIlatex/wiki)
+
+## Structure du projet
+
+```text
+pyUPSTIlatex/
+├── pyupstilatex/               # Code source principal
+│   ├── config/                 # Configuration par défaut
+│   │   ├── pyUPSTIlatex.json   # Possiblité de mettre à jour par le CLI
+│   │   └── config.default.toml # Configuration métier par défaut
+│   ├── accessibilite.py        # Configuration des fichiers accessibles
+│   ├── cli.py                  # Interface en ligne de commande
+│   ├── config.py               # Gestion de la configuration
+│   ├── document.py             # Classe principale UPSTILatexDocument
+│   ├── document_registery.py   # Pour permettre la surcharge de UPSTILatexDocument
+│   ├── exceptions.py           # Gestion des erreurs (pas ouf..)
+│   ├── file_helpers.py         # Utilitaires de manipulation de fichiers
+│   ├── file_latex_helpers.py   # Parsing LaTeX
+│   ├── file_system.py          # Gestion I/O sur le disque
+│   ├── handlers.py             # Handlers de version (v1, v2)
+│   └── logger.py               # Système de messages dans la console et logger
+├── templates/                  # Templates LaTeX par défaut
+│   ├── latex/                  # Templates de documents
+│   └── yaml/                   # Templates YAML
+├── integration/                # Fichiers d'intégration OS
+│   ├── commandes_windows/      # Scripts .cmd
+│   ├── icones_et_logos/        # Icônes et logos
+│   └── yaml/                   # Configs YAML
+├── custom/                     # Configuration personnalisée (non versionné)
+│   ├── .env                    # Secrets (FTP, etc.)
+│   ├── .env.template           # Secrets (Template à dupliquer)
+│   ├── config.toml             # Surcharge de configuration
+│   ├── config.toml.template    # Surcharge de configuration (Template à dupliquer)
+│   ├── document.py.template    # Template de classe personnalisée
+│   └── templates/              # Overrides des templates LaTeX et YAML
+└── exemples/                   # Exemples
+```
