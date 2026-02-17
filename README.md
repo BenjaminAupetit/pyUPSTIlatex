@@ -22,12 +22,12 @@ Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIl
 ## Fonctionnalités principales
 
 - **Compilation intelligente** avec gestion des versions élève/prof/documents à compléter, etc.
-- **Versions accessibles** génération automatique de documents accessibles : dys, déficients visuels...
+- **Versions accessibles** : génération automatique de documents accessibles : dys, déficients visuels...
 - **Génération de polys** de TD ou de colle
 - **Upload FTP** automatisé avec webhook optionnel pour synchronisation sur un site internet
 - **Traitement par lot** de documents (liste des documents compatibles, compilation par lots, etc.)
 - **Intégration à l'OS** : affichage de la version, des métadonnées, etc. depuis le menu contextuel de l'explorateur
-- **Personnalisation** possibilité de surcharger la configuration TOML, les templates et différentes classes
+- **Personnalisation** : possibilité de surcharger la configuration TOML, les templates et différentes classes
 
 ### En cours de développement
 
@@ -58,18 +58,20 @@ pip install -e .
 
 ### Configuration initiale
 
-Consulter le wiki [Configuration avancée](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration) pour plus de détails.
+Consulter le wiki [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation) pour plus de détails.
 
-1. **Créer le fichier de configuration personnalisé :**
+1. **Créer les fichiers de configuration personnalisés :**
 
 ```bash
-cp custom/.env.template custom/.env
 cp custom/config.toml.template  custom/config.toml
+cp custom/.env.template custom/.env
 ```
 
 <!-- markdownlint-disable MD029 -->
 
 2. **Configuration TOML** (`custom/config.toml`) :
+
+Surcharger les paramètres nécessaires (en vous inspirant de `pyupstilatex/config/custom/config.default.toml`)
 
 ```toml
 [meta.default]
@@ -86,6 +88,8 @@ mode_local_dossier = "C:/tmp/documents"
 ```
 
 3. **Secrets** (`custom/.env`) :
+
+Surcharger les paramètres nécessaires (en vous inspirant de `custom/.env.template`)
 
 ```bash
 FTP_HOST=ftp.example.com
@@ -139,7 +143,7 @@ pyUPSTIlatex utilise une **configuration en cascade** :
 - **`[ftp]`** : Configuration FTP
 - **`[poly]`** : Paramètres des polys
 
-Consultez le wiki [Configuration avancée](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration) pour le guide complet.
+Consultez le wiki [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation) pour le guide complet.
 
 ## Documentation
 
