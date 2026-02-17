@@ -24,11 +24,9 @@ Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIl
 - **Compilation intelligente** avec gestion des versions élève/prof/documents à compléter, etc.
 - **Versions accessibles** génération automatique de documents accessibles : dys, déficients visuels...
 - **Génération de polys** de TD ou de colle
-- **Renommage automatique des fichiers tex** selon un pattern configurable
-- **Détection automatique** de version et type de document
 - **Upload FTP** automatisé avec webhook optionnel pour synchronisation sur un site internet
 - **Traitement par lot** de documents (liste des documents compatibles, compilation par lots, etc.)
-- **Intégration à l'OS** : affichage de la version, des métadonnées, etc.
+- **Intégration à l'OS** : affichage de la version, des métadonnées, etc. depuis le menu contextuel de l'explorateur
 - **Personnalisation** possibilité de surcharger la configuration TOML, les templates et différentes classes
 
 ### En cours de développement
