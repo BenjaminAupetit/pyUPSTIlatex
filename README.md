@@ -19,7 +19,7 @@ Il peut néanmoins être adapté à n'importe quel niveau ou discipline, moyenna
 
 Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIlatex simplifie la gestion de documents pédagogiques (cours, TD, TP, colles) en automatisant la compilation, le versionnage, l'upload FTP et la génération de polys.
 
-> « En tant que professeur de S2I en CPGE, je dois gérer une grande quantité de documents pédagogiques (plus de 600 cours, TD, TP, colles, QCM, DS, DM, etc.), avec de nombreux contenus scientifiques (équations, schémas, graphiques, etc.). Ce volume de documents à gérer rend la tâche ardue. Uniformiser et maintenir ces documents nécessite un peu d'organisation, et rend incontournables un certain nombre de micro tâches rébarbatives qu'il serait intéressant d'automatiser. »
+> « En tant que professeur de S2I en CPGE PT, je dois gérer une grande quantité de documents pédagogiques (plus de 600 cours, TD, TP, colles, QCM, DS, DM, etc.), avec de nombreux contenus scientifiques (équations, schémas, graphiques, etc.). Ce volume de documents à gérer rend la tâche ardue. Uniformiser et maintenir ces documents nécessite un peu d'organisation, et rend incontournables un certain nombre de micro tâches rébarbatives qu'il serait intéressant d'automatiser. »
 
 En savoir plus en consultant le wiki : [Concepts et structure du projet](https://github.com/ebigeard/pyUPSTIlatex/wiki/Concepts-et-structure-du-projet)
 
