@@ -523,7 +523,7 @@ def create_yaml_for_poly(
             )
 
             useful_metadata_keys = [
-                "thematique",
+                "thematiques",
                 "titre",
                 "matiere",
                 "variante",
@@ -1373,7 +1373,7 @@ def prepare_for_pyupstilatex_v2(
             [
                 "Le fichier de configuration YAML existe déjà. Par précaution, on ne "
                 "change rien.",
-                "error",
+                "warning",
             ]
         ]
 
@@ -1594,7 +1594,7 @@ def prepare_for_pyupstilatex_v2(
     # On ajoute thematique et description pour que l'utilisateur puisse les compléter
     # dans le yaml
     new_comp_params["surcharge_metadonnees"] = {
-        "thematique": thematique,
+        "thematiques": [thematique],
     }
 
     creation_yaml, messages_yaml = create_compilation_parameter_file(

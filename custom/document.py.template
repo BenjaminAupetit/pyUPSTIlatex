@@ -66,8 +66,8 @@ class CustomUPSTILatexDocument(UPSTILatexDocument):
     #     metadata = self.metadata
     #     
     #     # Exemple : vérifier qu'un champ spécifique existe
-    #     if "thematique" not in metadata:
-    #         self.msg.warning("⚠️ Champ 'thematique' manquant dans les métadonnées")
+    #     if "thematiques" not in metadata:
+    #         self.msg.warning("⚠️ Champ 'thematiques' manquant dans les métadonnées")
     #         return False
     #     
     #     return True

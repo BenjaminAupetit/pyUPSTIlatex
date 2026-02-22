@@ -386,7 +386,7 @@ class OSConfig:
             # Fichiers et extensions
             format_nom_fichier=get_str(
                 "OS_FORMAT_NOM_FICHIER",
-                "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]",
+                "[thematiques.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]",
             ),
             format_nom_fichier_version=get_str(
                 "OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
@@ -458,10 +458,10 @@ class TraitementParLotConfig:
     def from_env(cls) -> "TraitementParLotConfig":
         return cls(
             dossiers_a_traiter=get_list(
-                "TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER", default=[], sep=";"
+                "TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER", default=[], sep=","
             ),
             fichiers_a_exclure=get_list(
-                "TRAITEMENT_PAR_LOT_FICHIERS_A_EXCLURE", default=[], sep=";"
+                "TRAITEMENT_PAR_LOT_FICHIERS_A_EXCLURE", default=[], sep=","
             ),
         )
 

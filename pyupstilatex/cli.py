@@ -705,7 +705,7 @@ def update_config(ctx):
         )
 
     if new_json_config == json_config:
-        messages = [["pyUPSTIlatex.json est à jour.", "info"]]
+        messages = [["pyUPSTIlatex.json est à jour", "info"]]
         return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
     # === 3. Création ou modification du fichier local ===
@@ -752,6 +752,13 @@ def update_config(ctx):
             separator_before=True,
         )
 
+    messages_ecriture.append(
+        [
+            f"Fichier pyUPSTIlatex.json mis à jour avec succès : version "
+            f"{new_json_config.get('version', 'inconnue')}",
+            "success",
+        ]
+    )
     return _exit_with_messages(ctx, msg, messages_ecriture, separator_before=True)
 
 

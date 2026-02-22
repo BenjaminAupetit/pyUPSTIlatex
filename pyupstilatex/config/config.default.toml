@@ -47,7 +47,7 @@ copier_fichier_version = true                   # Si on créer et copier le fich
 # Fichiers et extensions
 #--------------------------------------------------------------------------------------
 [os.format]
-nom_fichier = "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]"    # Pattern pour les noms de fichiers tex
+nom_fichier = "[thematiques.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]"    # Pattern pour les noms de fichiers tex
 nom_fichier_version = "@_v[numero_version].ver"                         # Pattern pour les noms de fichiers indiquant la version (ex: @_v0.1.ver)
 nom_fichier_parametres_compilation = "@parametres.pyUPSTIlatex.yaml"    # Nom du fichier de paramètres de compilation à placer à côté du fichier tex
 nom_fichier_qrcode = "qrcode"                                           # Nom du fichier de QR code généré (sans extension)

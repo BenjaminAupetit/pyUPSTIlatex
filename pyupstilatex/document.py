@@ -1341,7 +1341,7 @@ class UPSTILatexDocument:
         nouveau_nom = format_nom_fichier
         for placeholder in placeholders:
             # Analyser le placeholder : peut contenir des filtres après |
-            # Exemple: [thematique.code|upper,slug] ou [titre|slug]
+            # Exemple: [thematiques.code|upper,slug] ou [titre|slug]
             if "|" in placeholder:
                 placeholder_base, filters_str = placeholder.split("|", 1)
                 filters = [f.strip() for f in filters_str.split(",") if f.strip()]
@@ -1375,6 +1375,9 @@ class UPSTILatexDocument:
                         valeur = metadata["titre"].get("valeur", "")
                 else:
                     valeur = metadata[meta_key].get("valeur", "")
+                # Si la valeur est une liste, prendre le premier élément
+                if isinstance(valeur, list):
+                    valeur = valeur[0] if valeur else ""
                 if valeur:
                     # Appliquer les filtres si présents
                     valeur_finale = _apply_filters(str(valeur), filters)
@@ -1392,6 +1395,10 @@ class UPSTILatexDocument:
                 # Récupérer la raw_value de la métadonnée
                 raw_value = metadata[meta_key].get("raw_value", "")
 
+                # Si la valeur est une liste, prendre le premier élément
+                if isinstance(raw_value, list):
+                    raw_value = raw_value[0] if raw_value else ""
+
                 if not raw_value:
                     return chemin_actuel.name, [
                         [
@@ -1403,7 +1410,10 @@ class UPSTILatexDocument:
 
                 # Chercher dans la config JSON la définition de cette métadonnée
                 # puis naviguer dans la structure pour trouver la propriété demandée
-                meta_cfg = cfg_json.get(meta_key, {})
+                # Utiliser join_source si défini (ex: thematiques -> thematique)
+                meta_params = metadata[meta_key].get("parametres", {})
+                join_source = meta_params.get("join_source", meta_key)
+                meta_cfg = cfg_json.get(join_source, {})
 
                 # raw_value peut être une clé vers un objet dans la config
                 if isinstance(raw_value, str) and raw_value in meta_cfg:
@@ -3101,11 +3111,33 @@ class UPSTILatexDocument:
             raw_value = meta.get("raw_value", "")
 
             if join_key:
+                # Déterminer la table de correspondance
+                # (join_source si défini, sinon key)
+                lookup_key = params.get("join_source", key)
+                lookup_table = cfg.get(lookup_key) or {}
+
+                # Cas liste : valider chaque élément individuellement
+                if isinstance(raw_value, list):
+                    invalid_items = [
+                        item
+                        for item in raw_value
+                        if isinstance(item, str) and item not in lookup_table
+                    ]
+                    if invalid_items:
+                        use_default = bool(params.get("default"))
+                        self._handle_invalid_meta(
+                            meta,
+                            key,
+                            f"Valeur(s) inconnue(s) pour '{key}': {invalid_items}.",
+                            use_default,
+                            errors,
+                            suffix="bad_key",
+                        )
                 # Cas 1 : valeur inconnue et pas autorisée comme custom
-                if (
+                elif (
                     not isinstance(raw_value, dict)
                     and raw_value != ""
-                    and str(raw_value) not in (cfg.get(key) or {})
+                    and str(raw_value) not in lookup_table
                     and not params.get("custom_can_be_not_related", "")
                 ):
                     use_default = bool(params.get("default"))
@@ -3121,7 +3153,7 @@ class UPSTILatexDocument:
                 elif (
                     not isinstance(raw_value, dict)
                     and raw_value != ""
-                    and str(raw_value) not in (cfg.get(key) or {})
+                    and str(raw_value) not in lookup_table
                     and params.get("custom_can_be_not_related", "")
                 ):
                     meta["display_flag"] = "info"
@@ -3204,6 +3236,8 @@ class UPSTILatexDocument:
             raw_value = meta.get("raw_value")
 
             if meta.get("parametres", {}).get("join_key", False):
+                params = meta.get("parametres", {})
+                lookup_key = params.get("join_source", key)
 
                 # Si c'est une valeur custom
                 if isinstance(raw_value, dict):
@@ -3212,7 +3246,27 @@ class UPSTILatexDocument:
                     meta["initiales"] = raw_value.get("initiales", meta["valeur"])
                     continue
 
-                obj = (cfg.get(key) or {}).get(raw_value, {})
+                # Si c'est une liste (ex: thematiques)
+                if isinstance(raw_value, list):
+                    lookup = cfg.get(lookup_key) or {}
+                    resolved_valeurs = []
+                    resolved_affichages = []
+                    resolved_initiales = []
+                    for item in raw_value:
+                        obj = lookup.get(item, {})
+                        resolved_valeurs.append(obj.get("nom", item))
+                        resolved_affichages.append(
+                            obj.get("affichage", obj.get("nom", item))
+                        )
+                        resolved_initiales.append(
+                            obj.get("initiales", obj.get("nom", item))
+                        )
+                    meta["valeur"] = resolved_valeurs
+                    meta["affichage"] = resolved_affichages
+                    meta["initiales"] = resolved_initiales
+                    continue
+
+                obj = (cfg.get(lookup_key) or {}).get(raw_value, {})
                 meta["valeur"] = obj.get("nom", "")
                 meta["affichage"] = obj.get("affichage", "")
                 meta["initiales"] = obj.get("initiales", "")
