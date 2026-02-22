@@ -32,6 +32,8 @@ est_un_document_a_trous = false                 # Si le document est un document
 copier_pdf_dans_dossier_cible = true            # Si les PDF générés doivent être copiés dans le dossier cible depuis le dossier de compilation
 upload = true                                   # Si on doit uploader les fichiers sur le FTP ou dans un dossier local après compilation
 upload_diaporama = false                        # Si on doit aussi uploader un diaporama
+creer_miniature = false                         # Si on doit créer une miniature (thumbnail) du document à partir de la première page du PDF généré
+hauteur_miniature = 600                         # Hauteur en pixels de la miniature créée (la largeur est ajustée automatiquement pour garder les proportions)
 query_webhook_apres_upload = false              # Si on doit faire une requête au webhook après l'upload pour informer le site de la disponibilité du document  
 dossier_ftp = "/"                               # Dossier sur le FTP où uploader les fichiers (ex: "/S2I/PT/Cours/") - utilisé si upload = true et mode_local = false
 
@@ -63,6 +65,7 @@ nom_fichier_prof = "-prof"                      # Suffixe ajouté au nom de fich
 nom_fichier_a_trous = "-eleve"                  # Suffixe ajouté au nom de fichier pour la version élève (cas des documents "à trous")
 nom_diaporama = "-diaporama"                    # Suffixe ajouté au nom de fichier pour le diaporama associé
 nom_sources = "-sources"                        # Suffixe ajouté au nom du zip qui contient les sources LaTeX
+nom_thumbnail = "-miniature"                    # Suffixe ajouté au nom de fichier pour la miniature (thumbnail) du document
 nom_poly = "-poly"                              # Suffixe ajouté au nom de fichier pour les poly
 
 #--------------------------------------------------------------------------------------

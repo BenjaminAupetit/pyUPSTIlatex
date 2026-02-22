@@ -295,6 +295,8 @@ class CompilationConfig:
     est_un_document_a_trous: bool
     copier_pdf_dans_dossier_cible: bool
     upload: bool
+    creer_miniature: bool
+    hauteur_miniature: int
     query_webhook_apres_upload: bool
     upload_diaporama: bool
     dossier_ftp: str
@@ -335,6 +337,8 @@ class CompilationConfig:
             query_webhook_apres_upload=get_bool(
                 "COMPILATION_DEFAUT_QUERY_WEBHOOK_APRES_UPLOAD", False
             ),
+            creer_miniature=get_bool("COMPILATION_DEFAUT_CREER_MINIATURE", False),
+            hauteur_miniature=get_int("COMPILATION_DEFAUT_HAUTEUR_MINIATURE", 600),
             upload_diaporama=get_bool("COMPILATION_DEFAUT_UPLOAD_DIAPORAMA", True),
             dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
             # Paramètres de compilation LaTeX
@@ -365,6 +369,7 @@ class OSConfig:
     suffixe_nom_fichier_a_trous: str
     suffixe_nom_fichier_diaporama: str
     suffixe_nom_fichier_sources: str
+    suffixe_nom_thumbnail: str
     suffixe_nom_fichier_poly: str
 
     # Dossiers et arborescence
@@ -412,6 +417,7 @@ class OSConfig:
                 "OS_SUFFIXE_NOM_DIAPORAMA", "-diaporama"
             ),
             suffixe_nom_fichier_sources=get_str("OS_SUFFIXE_NOM_SOURCES", "-sources"),
+            suffixe_nom_thumbnail=get_str("OS_SUFFIXE_NOM_THUMBNAIL", "-miniature"),
             suffixe_nom_fichier_poly=get_str("OS_SUFFIXE_NOM_POLY", "-poly"),
             # Dossiers et arborescence
             dossier_cours=get_str("OS_DOSSIER_COURS", "Cours"),

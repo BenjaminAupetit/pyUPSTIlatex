@@ -11,6 +11,7 @@ build/
 *.xlsx
 TODO.txt
 TODO.md
+*.eb
 
 # Conserver le dossier `custom/` et `custom/README.md`, ignorer les sous-dossiers
 custom/*

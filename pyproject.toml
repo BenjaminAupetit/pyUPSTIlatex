@@ -37,6 +37,8 @@ dev = [
     "ruff>=0.1",
     "isort>=5.0",
 ]
+thumbnail = ["Pillow>=10.0", "PyMuPDF>=1.23.0"]
+full = ["qrcode>=7.4", "Pillow>=10.0", "PyMuPDF>=1.23.0", "requests>=2.31.0"]
 
 [project.urls]
 Homepage = "https://github.com/ebigeard/pyUPSTIlatex"

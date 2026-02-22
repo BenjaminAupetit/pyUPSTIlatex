@@ -519,11 +519,20 @@ class UPSTILatexDocument:
 
             # === 12- Fin du post traitement ===
             # DEBUG
-            # compilation_cli_options["dry_run"] = False
+            compilation_cli_options["dry_run"] = False
 
             if self.compilation_parameters.get("upload", False):
 
-                # --- 12a- Création du fichier zip des fichiers ---
+                # --- 12a- Création du thumbnail ---
+                if self.compilation_parameters.get("creer_miniature", False):
+                    resultat, messages = self._cp_step(
+                        affichage="Création du fichier miniature (thumbnail)",
+                        fonction=self._cp_create_thumbnail,
+                        compilation_options=compilation_cli_options,
+                    )
+                    messages_compilation.extend(messages)
+
+                # --- 12b- Création du fichier zip des fichiers ---
                 resultat, messages = self._cp_step(
                     affichage="Création du fichier zip",
                     fonction=self._cp_create_zip,
@@ -531,7 +540,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-                # --- 12b- Création du fichier meta à uploader ---
+                # --- 12c- Création du fichier meta à uploader ---
                 fichier_meta_created, messages = self._cp_step(
                     affichage="Création du fichier de synthèse JSON à uploader",
                     fonction=self._cp_create_info_file,
@@ -539,7 +548,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-                # --- 12c- Upload des fichiers sur le FTP ---
+                # --- 12d- Upload des fichiers sur le FTP ---
                 if fichier_meta_created:
                     resultat_upload, messages = self._cp_step(
                         affichage="Upload des fichiers sur le FTP",
@@ -548,7 +557,7 @@ class UPSTILatexDocument:
                     )
                     messages_compilation.extend(messages)
 
-                # --- 12d- Webhook ---
+                # --- 12e- Webhook ---
                 if self.compilation_parameters.get("query_webhook_apres_upload", False):
                     if fichier_meta_created and resultat_upload:
                         resultat, messages = self._cp_step(
@@ -558,7 +567,7 @@ class UPSTILatexDocument:
                         )
                         messages_compilation.extend(messages)
 
-                # --- 12e- Nettoyage de fin de compilation ---
+                # --- 12f- Nettoyage de fin de compilation ---
                 resultat, messages = self._cp_step(
                     affichage="Nettoyage des fichiers temporaires",
                     fonction=self._cp_clean_temp_after_compilation,
@@ -784,6 +793,8 @@ class UPSTILatexDocument:
             - est_un_document_a_trous: bool
             - copier_pdf_dans_dossier_cible: bool
             - upload: bool
+            - creer_miniature: bool
+            - hauteur_miniature: int
             - query_webhook_apres_upload: bool
             - upload_diaporama: bool
             - dossier_ftp: str
@@ -811,6 +822,8 @@ class UPSTILatexDocument:
                 cfg.compilation.copier_pdf_dans_dossier_cible
             ),
             "upload": bool(cfg.compilation.upload),
+            "creer_miniature": bool(cfg.compilation.creer_miniature),
+            "hauteur_miniature": int(cfg.compilation.hauteur_miniature),
             "query_webhook_apres_upload": bool(
                 cfg.compilation.query_webhook_apres_upload
             ),
@@ -2216,6 +2229,86 @@ class UPSTILatexDocument:
         # On copie les fichiers compilés dans le dossier cible
         return "success", messages
 
+    def _cp_create_thumbnail(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Crée une miniature du PDF compilé (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur la création de la
+            miniature, et messages est une liste de [message, flag].
+        """
+        # Vérification que le PDF compilé existe
+        if len(self._liste_fichiers.get("compiled", [])) == 0:
+            return None, [
+                ["Aucun fichier PDF compilé trouvé pour créer la miniature.", "warning"]
+            ]
+
+        pdf_compiled_path = self._liste_fichiers["compiled"][0]
+        if not pdf_compiled_path.exists():
+            return None, [
+                [
+                    "Le fichier PDF compilé n'existe pas pour créer la miniature.",
+                    "warning",
+                ]
+            ]
+
+        # Chargement de la configuration
+        cfg = load_config()
+
+        # La miniature est créée dans le même dossier que le fichier source
+        # (comme le zip), elle sera uploadée puis supprimée
+        thumbnail_filename = f"{self.file.stem}{cfg.os.suffixe_nom_thumbnail}.webp"
+        thumbnail_path = self.file.parent / thumbnail_filename
+
+        # Génération de la miniature à partir du PDF
+        try:
+            # Utiliser PyMuPDF pour extraire la première page du PDF
+            import fitz  # PyMuPDF
+            from PIL import Image
+
+            if not compilation_options["dry_run"]:
+                # Ouvrir le PDF et extraire la première page
+                pdf_document = fitz.open(pdf_compiled_path)
+                first_page = pdf_document[0]
+
+                # Calculer le zoom pour obtenir la hauteur souhaitée
+                hauteur_pixels = cfg.compilation.hauteur_miniature
+                page_height = first_page.rect.height
+                zoom = hauteur_pixels / page_height
+
+                # Convertir la page en image avec le zoom calculé
+                mat = fitz.Matrix(zoom, zoom)
+                pix = first_page.get_pixmap(matrix=mat)
+
+                # Convertir en image PIL
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+                # Sauvegarder en WebP avec une bonne qualité
+                img.save(thumbnail_path, "WEBP", quality=85, method=6)
+
+                pdf_document.close()
+
+                # Ajouter la miniature à la liste des fichiers à uploader
+                self._liste_fichiers["autres"].append(thumbnail_path)
+
+            return str(thumbnail_path), []
+
+        except ImportError:
+            return None, [
+                [
+                    "PyMuPDF (fitz) n'est pas installé. "
+                    "Installez-le avec: pip install PyMuPDF",
+                    "warning",
+                ]
+            ]
+        except Exception as e:
+            return None, [
+                [f"Erreur lors de la création de la miniature : {e}", "warning"]
+            ]
+
     def _cp_create_zip(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
@@ -2540,6 +2633,9 @@ class UPSTILatexDocument:
         zip_file = self.file.parent / (
             str(self.file.stem) + cfg.os.suffixe_nom_fichier_sources + ".zip"
         )
+        thumbnail_file = self.file.parent / (
+            f"{self.file.stem}{cfg.os.suffixe_nom_thumbnail}.webp"
+        )
 
         # Suppression des fichiers
         try:
@@ -2548,6 +2644,8 @@ class UPSTILatexDocument:
                     info_file.unlink()
                 if zip_file.is_file():
                     zip_file.unlink()
+                if thumbnail_file.is_file():
+                    thumbnail_file.unlink()
 
         except Exception as e:
             return None, [[f"Erreur lors du nettoyage des fichiers : {e}", "warning"]]
