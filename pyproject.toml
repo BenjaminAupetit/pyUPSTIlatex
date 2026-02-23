@@ -46,7 +46,7 @@ Repository = "https://github.com/ebigeard/pyUPSTIlatex"
 Issues = "https://github.com/ebigeard/pyUPSTIlatex/issues"
 
 [project.scripts]
-pyUPSTIlatex = "pyupstilatex.cli:main"
+pyupstilatex = "pyupstilatex.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

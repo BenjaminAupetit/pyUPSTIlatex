@@ -121,26 +121,26 @@ FTP_PASSWORD=password
 
 ```bash
 # Afficher la version d'un document
-pyUPSTIlatex version chemin/vers/document.tex
+pyupstilatex version chemin/vers/document.tex
 
 # Afficher les informations complètes (métadonnées)
-pyUPSTIlatex infos chemin/vers/document.tex
+pyupstilatex infos chemin/vers/document.tex
 
 # Lister les fichiers LaTeX compatibles dans un dossier
-pyUPSTIlatex liste-fichiers chemin/vers/dossier
+pyupstilatex liste-fichiers chemin/vers/dossier
 
 # Compiler un document
-pyUPSTIlatex compile chemin/vers/document.tex
+pyupstilatex compile chemin/vers/document.tex
 
 # Compiler tous les documents d'un dossier
-pyUPSTIlatex compile chemin/vers/dossier
+pyupstilatex compile chemin/vers/dossier
 
 # Créer un poly de TD (en 2 temps)
-pyUPSTIlatex poly chemin/vers/dossier
-pyUPSTIlatex poly chemin/vers/dossier/_poly/poly.yaml
+pyupstilatex poly chemin/vers/dossier
+pyupstilatex poly chemin/vers/dossier/_poly/poly.yaml
 
 # Mettre à jour automatiquement le fichier pyUPSTIlatex.json
-pyUPSTIlatex update-config
+pyupstilatex update-config
 ```
 
 ## Configuration
@@ -180,27 +180,27 @@ La **documentation complète** est disponible sur le [**Wiki GitHub**](https://g
 
 ```bash
 # Compilation en mode "deep" (régénération complète)
-pyUPSTIlatex compile document.tex --mode deep
+pyupstilatex compile document.tex --mode deep
 
 # Simulation (dry-run)
-pyUPSTIlatex compile document.tex --dry-run
+pyupstilatex compile document.tex --dry-run
 ```
 
 ### Traitement par lot
 
 ```bash
 # Compiler tous les documents d'un dossier
-pyUPSTIlatex compile chemin/vers/dossier
+pyupstilatex compile chemin/vers/dossier
 ```
 
 ### Génération de poly
 
 ```bash
 # Créer le fichier YAML de configuration
-pyUPSTIlatex poly chemin/vers/TD
+pyupstilatex poly chemin/vers/TD
 
 # Le poly.yaml est généré, le modifier si nécessaire, puis compiler
-pyUPSTIlatex poly chemin/vers/TD/_poly/poly.yaml
+pyupstilatex poly chemin/vers/TD/_poly/poly.yaml
 ```
 
 ### Utilisation programmatique (API Python)
