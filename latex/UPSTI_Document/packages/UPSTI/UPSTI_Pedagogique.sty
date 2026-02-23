@@ -1,0 +1,148 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Package pour gérer l'affichage des infos et diagrammes "pédagogiques"
+% -----------
+% Auteur: Emmanuel Pinault-Bigeard
+% email: e.pinault-bigeard@upsti.fr
+% -----------
+% Version: 2.2 - 2022/04/28
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% UPSTI - http://www.upsti.fr
+% CC BY-NC-SA 2.0 FR - http://creativecommons.org/licenses/by-nc-sa/2.0/fr/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%==============================================================================%
+%	Préambule
+%==============================================================================%
+% Pour faciliter les éventuelles mises à jour, il n'est pas conseillé de
+% modifier directement ce fichier.
+% Pour personnaliser ce package, il vaut mieux éditer le fichier
+% UPSTI_Pedagogique_Custom.sty, ou si vous utilisez UPSTI_Document, dans
+% le fichier UPSTI_Custom.sty prévu à cet effet.
+%==============================================================================%
+\NeedsTeXFormat{LaTeX2e}[1999/01/01]
+\ProvidesPackage{UPSTI_Pedagogique}[2022/04/28]
+
+
+%==============================================================================%
+%	Changelog
+%==============================================================================%
+% TODO : changer le fichier exemple, mettre à jour la doc (avec l'option pour afficher le semestre)
+%
+%
+%
+% 2.2 - 2022/04/28
+%   - Découpage du package en plusieurs packages, pour simplifier la maintenance
+%   - Corrections (mineures) des compétences de TSI
+%   - Ajout des compétences d'ATS (programme de 2015)
+% 2.1 - 2022/01/06
+%   - Ajout des compétences de TSI
+% 2.0 - 2021/15/04
+%   - Nouveaux programmes de 2021 en MP2I/MPSI/PCSI/PTSI
+%   - Ajout de l'option de package ancienProg
+% 1.2 - 2020/09/01
+%   - Correction de bugs mineurs en MPSI/MP et PCSI/PSI.
+%   - Ajout de la gestion des semestres pour les compétences
+% 1.1 - 2017/11/23 - Correction de bugs mineurs sur les compétences MPSI/MP
+% 1.0 - 2017/11/23 - Mise en ligne de la première version
+%
+
+
+%==============================================================================%
+% Options du package
+%==============================================================================%
+% Options possibles:
+%   - progMMXIII      : programme de 2013 (2015 pour ATS)
+%   - ancienProgramme : programme de 2013 (2015 pour ATS) - rétro-compatibilité
+\newif\if@progMMXIII \@progMMXIIIfalse
+\DeclareOption{progMMXIII}{\@progMMXIIItrue}
+\newif\if@ancienProgramme \@ancienProgrammefalse
+\DeclareOption{ancienProgramme}{\@ancienProgrammetrue}
+\DeclareOption*{} % Ne rien faire quand une option est inconnue
+\ProcessOptions
+
+
+%==============================================================================%
+% Importation des packages nécessaires
+%==============================================================================%
+\RequirePackage[utf8]{inputenc}   % Encodage
+\RequirePackage[T1]{fontenc}      % Encodage
+\RequirePackage[french]{babel}  % Gestion du français
+\RequirePackage[svgnames]{xcolor} % Gestion des couleurs
+\RequirePackage{etoolbox}         % Scripting
+\RequirePackage{ifthen}           % Scripting
+\RequirePackage{xargs}            % Pour arguments optionnels multiples
+\RequirePackage{tikz}             % Figures
+\RequirePackage{tabularx}         % Tableaux avancés
+\usetikzlibrary{calc,shapes,positioning}
+
+
+%==============================================================================%
+% Appel des packages secondaire correspondant à chaque version des programmes
+%==============================================================================%
+% Programme 2013
+\if@progMMXIII
+  \RequirePackage{UPSTI_Pedagogique_programme_2013}
+\else
+  \if@ancienProgramme
+    \RequirePackage{UPSTI_Pedagogique_programme_2013}
+
+  % Programme 2021 (par défaut)
+  \else
+    \RequirePackage{UPSTI_Pedagogique_programme_2021}
+  \fi
+\fi
+
+
+%==============================================================================%
+% Compétences
+%==============================================================================%
+%--------------------------------------------------------%
+% Mise en forme de l'affichage des compétences
+%--------------------------------------------------------%
+% Tableau des compétences pour le début des énoncés
+\newcommandx{\UPSTItableauCompetences}[2][1=0]{
+    \ifnumequal{0}{#1}{
+      \noindent\begin{tabularx}{\textwidth}{p{1.65cm} X }#2\end{tabularx}
+    }{
+      \noindent\begin{tabularx}{\textwidth}{p{1.65cm} >{\centering\arraybackslash}p{0.6cm} X }#2\end{tabularx}
+    }
+}
+
+\newcommandx{\UPSTIligneTableauCompetence}[2][1=0]{
+    \ifnumequal{0}{#1}{
+      \UPSTIcompetence{#2} & \UPSTIcompetence{#2}[1] \\
+    }{
+      \UPSTIcompetence{#2} & \small\bfseries\UPSTIcompetence{#2}[2] & \normalsize\UPSTIcompetence{#2}[1] \\
+    }
+}
+
+% Rectangle coloré pour les compétences
+\newcommandx{\UPSTIcompetenceCode}[2][1=competence]{
+  \begin{tikzpicture}[baseline=-0.3em]
+    \node[rounded corners=0.2em,fill=#1,minimum width=4em] (centre) at (0,0) {\textbf{#2}};
+  \end{tikzpicture}
+}
+
+
+%==============================================================================%
+% Divers
+%==============================================================================%
+%--------------------------------------------------------%
+% Chaînes de caractères
+%--------------------------------------------------------%
+% Pour la mise en forme de la référence au programme dans l'en-tête
+\newcommand*{\UPSTIrefProg}{Réf. Programme:~}
+\newcommand*{\UPSTIcomp}{Compétences visées:~}
+\newcommand*{\UPSTIcompU}{Compétence visée:~}
+\newcommand*{\UPSTIcompR}{Comp. visées:~}
+\newcommand*{\UPSTIcompRU}{Comp. visée:~}
+\newcommand*{\UPSTIcompP}[1]{#1}            % Compétence principale
+\newcommand*{\UPSTIcompS}[1]{\textit{#1}}   % Compétence secondaire
+
+
+%==============================================================================%
+% Package de personnalisation
+%==============================================================================%
+\RequirePackage{UPSTI_Pedagogique_Custom}
+
+\endinput

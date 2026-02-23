@@ -6,6 +6,7 @@ dist/
 work/
 tests/*
 scripts/
+!latex/UPSTI_Document/Scripts/
 build/
 *.egg-info
 *.xlsx

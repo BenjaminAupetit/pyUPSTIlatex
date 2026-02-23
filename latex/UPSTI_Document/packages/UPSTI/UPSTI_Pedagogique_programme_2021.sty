@@ -1,0 +1,1084 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Package pour gérer l'affichage des compétences et diagrammes "pédagogiques" - Programme 2021
+% -----------
+% Auteur: Emmanuel Pinault-Bigeard
+% email: e.pinault-bigeard@upsti.fr
+% -----------
+% Version: 2.1 - 2022/09/04
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% UPSTI - http://www.upsti.fr
+% CC BY-NC-SA 2.0 FR - http://creativecommons.org/licenses/by-nc-sa/2.0/fr/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%==============================================================================%
+%	Préambule
+%==============================================================================%
+% Ce package est un complément du package UPSTI_pedagogique.sty
+% Il ne peut pas être utilisé seul.
+%==============================================================================%
+% Pour personnaliser ce package, il vaut mieux éditer le fichier
+% UPSTI_Pedagogique_Custom.sty, pour faciliter les éventuelles
+% mises à jour futures
+%==============================================================================%
+\NeedsTeXFormat{LaTeX2e}[1999/01/01]
+\ProvidesPackage{UPSTI_Pedagogique_programme_2021}[2022/04/28]
+
+
+%==============================================================================%
+%	Changelog
+%==============================================================================%
+% 2.1 - 2022/09/04 - Correction de bugs mineurs
+% 2.0 - 2022/04/28 - Mise en ligne de la première version
+
+
+%==============================================================================%
+% Couleurs et autres commandes personnalisables
+%==============================================================================%
+%--------------------------------------------------------%
+% Diagramme des compétences
+%--------------------------------------------------------%
+% Couleur des compétences principales
+\definecolor{couleurDefaultAnalyser}{HTML}{0F3399}
+\definecolor{couleurDefaultModeliser}{HTML}{B6338D}
+\definecolor{couleurDefaultResoudre}{HTML}{FF0000}
+\definecolor{couleurDefaultExperimenter}{HTML}{C55A11}
+\definecolor{couleurDefaultCommuniquer}{HTML}{BF9000}
+\definecolor{couleurDefaultConcevoir}{HTML}{75BC37}
+\definecolor{couleurDefaultRealiser}{HTML}{00A19A}
+
+% Les mêmes, mais plus claires
+\definecolor{couleurDefaultFondAnalyser}{HTML}{B1CDFC}
+\definecolor{couleurDefaultFondModeliser}{HTML}{F5B6E7}
+\definecolor{couleurDefaultFondResoudre}{HTML}{FC8F8F}
+\definecolor{couleurDefaultFondExperimenter}{HTML}{FFCE77}
+\definecolor{couleurDefaultFondCommuniquer}{HTML}{FFFD5F}
+\definecolor{couleurDefaultFondConcevoir}{HTML}{CEF19D}
+\definecolor{couleurDefaultFondRealiser}{HTML}{D2FFFF}
+
+\makeatletter
+\@ifundefinedcolor{couleurCompetenceA}{\colorlet{couleurCompetenceA}{couleurDefaultFondAnalyser}}{}
+\@ifundefinedcolor{couleurCompetenceB}{\colorlet{couleurCompetenceB}{couleurDefaultFondModeliser}}{}
+\@ifundefinedcolor{couleurCompetenceC}{\colorlet{couleurCompetenceC}{couleurDefaultFondResoudre}}{}
+\@ifundefinedcolor{couleurCompetenceD}{\colorlet{couleurCompetenceD}{couleurDefaultFondExperimenter}}{}
+\@ifundefinedcolor{couleurCompetenceE}{\colorlet{couleurCompetenceE}{couleurDefaultFondCommuniquer}}{}
+\@ifundefinedcolor{couleurCompetenceF}{\colorlet{couleurCompetenceF}{couleurDefaultFondConcevoir}}{}
+\@ifundefinedcolor{couleurCompetenceG}{\colorlet{couleurCompetenceG}{couleurDefaultFondRealiser}}{}
+\makeatother
+
+% Diagramme des compétences
+\definecolor{couleurDefaultTitreClasse}{RGB}{96,96,96}
+\definecolor{couleurCompetenceInactive}{RGB}{127,127,127}
+
+%--------------------------------------------------------%
+% Diagramme des écarts
+%--------------------------------------------------------%
+\definecolor{couleurSys}{HTML}{7F7F7F}
+\definecolor{couleurFondSys}{HTML}{F2F2F2}
+\definecolor{couleurSysCdc}{HTML}{75BC37}
+\definecolor{couleurFondSysCdc}{HTML}{A3D674}
+\definecolor{couleurSysVirtuel}{HTML}{FCA042}
+\definecolor{couleurFondSysVirtuel}{HTML}{FDBE7F}
+\definecolor{couleurSysMateriel}{HTML}{0F3399}
+\definecolor{couleurFondSysMateriel}{HTML}{85A2F3}
+\definecolor{couleurFlecheHD}{HTML}{C00000}
+\definecolor{couleurFlecheHG}{HTML}{006600}
+\definecolor{couleurFlecheB}{HTML}{4472C4}
+\definecolor{couleurFlecheBesoin}{HTML}{002060}
+\definecolor{couleurSymbolePower}{HTML}{B2C1E6}
+
+
+%==============================================================================%
+% Intégration avec UPSTI_Document
+%==============================================================================%
+% On trouve la filiere en fonction de la classe, si ladite classe est déjà définie:
+% 1- PTSI/PT
+% 2- PCSI/PSI (PC ?)
+% 3- MPSI/MP
+% 4- TSI
+% 5- ATS
+% 6- MP2I/PSI
+% Par défaut, on spécifie PCSI/PSI (cas le plus probable de document commun entre PCSI et MPSI)
+
+% Equivalence UPSTIidClasse - UPSTIidFiliere
+% 1-PTSI, 2-PT, 3-PT* => 1
+% 4-PCSI, 5-PSI, 6-PSI*, 13-PC*, 14-PC, 15-Sup ou 16-Spe => 2
+% 7-MPSI, 8-MP, 9-MP* => 3
+% 10-TSI1 ou 11-TSI2 ou 19-TSI0=> 4
+% 12-ATS => 5
+% 17-MP2I, 18-MPI => 6
+
+\newcommand{\UPSTIdetermineIdFiliere}{
+
+  % Si la filière n'est pas définie, on se place en PTSI/PT par défaut
+  \ifdef{\UPSTIidFiliere}{}{\newcommand{\UPSTIidFiliere}{1}}
+
+  % Si on ne connait que l'idClasse, on en deduit l'idFiliere (idClasse est prioritaire par rapport à idFiliere)
+  \ifdef{\UPSTIidClasse}{
+    \ifcase\UPSTIidClasse
+      Erreur dans UPSTIidClasse (=0)
+      \or % PTSI
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{1}}{\newcommand{\UPSTIidFiliere}{1}}
+      \or % PT
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{1}}{\newcommand{\UPSTIidFiliere}{1}}
+      \or % PT*
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{1}}{\newcommand{\UPSTIidFiliere}{1}}
+      \or % PCSI
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % PSI
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % PSI*
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % MPSI
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{3}}{\newcommand{\UPSTIidFiliere}{3}}
+      \or % MP
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{3}}{\newcommand{\UPSTIidFiliere}{3}}
+      \or % MP*
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{3}}{\newcommand{\UPSTIidFiliere}{3}}
+      \or % TSI1
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{4}}{\newcommand{\UPSTIidFiliere}{4}}
+      \or % TSI2
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{4}}{\newcommand{\UPSTIidFiliere}{4}}
+      \or % ATS
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{5}}{\newcommand{\UPSTIidFiliere}{5}}
+      \or % PC
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % PC*
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % Sup
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % Spé
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{2}}{\newcommand{\UPSTIidFiliere}{2}}
+      \or % MP2I
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{6}}{\newcommand{\UPSTIidFiliere}{6}}
+      \or % MPI
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{6}}{\newcommand{\UPSTIidFiliere}{6}}
+      \or % MPI*
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{6}}{\newcommand{\UPSTIidFiliere}{6}}
+      \or % TSI0
+        \ifdef{\UPSTIidFiliere}{\renewcommand{\UPSTIidFiliere}{4}}{\newcommand{\UPSTIidFiliere}{4}}
+      \else Erreur dans UPSTIidClasse (Trop grand)
+    \fi
+  }{}
+}
+
+
+%==============================================================================%
+% Diagrammes pédagogiques
+%==============================================================================%
+%--------------------------------------------------------%
+% Diagramme des compétences
+%--------------------------------------------------------%
+% Gestion des actifs/inactifs
+\newcommand*{\UPSTIcompetenceActifInactif}[1]{\ifnumequal{0}{#1}{inactif}{actif}}
+
+% Personnalisation
+\newcommand*{\UPSTIcompetencesRayonEllipse}{1.9}
+
+% #1: echelle, #2: filiere*, #3-9: activation ou non des compétences (activées par défaut)
+% 1- PTSI/PT
+% 2- PCSI/PSI (PC ?)
+% 3- MPSI/MP
+% 4- TSI
+% 5- ATS
+% 6- MP2I/PSI
+\newcommandx{\UPSTIdiagrammeCompetences}[9][1=,2=,3=1,4=1,5=1,6=1,7=1,8=1,9=1]	%
+{
+  % Intégration avec UPSTI_Document
+  \UPSTIdetermineIdFiliere
+
+  % Filiere: le 2ème paramètre facultatif écrase idFiliere
+  \ifstrempty{#2}
+  {
+    \ifdef{\UPSTIidFiliereTmp}{\renewcommand{\UPSTIidFiliereTmp}{\UPSTIidFiliere}}{\newcommand{\UPSTIidFiliereTmp}{\UPSTIidFiliere}}
+  }{
+    \ifdef{\UPSTIidFiliereTmp}{\renewcommand{\UPSTIidFiliereTmp}{#2}}{\newcommand{\UPSTIidFiliereTmp}{#2}}
+  }
+
+  % Un switch pour "fusionner" les filières qui ont le même diagramme de compétence: (ex: PTSI/PT-TSI-ATS)
+  \ifcase\UPSTIidFiliereTmp
+    Erreur dans UPSTIidFiliere (=0)
+    \or %PTSI/PT
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{PTSI-PT}}{\newcommand*{\UPSTItitreClasseComp}{PTSI-PT}}
+    \or %PCSI/PSI
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{1}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{1}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{PCSI-PSI}}{\newcommand*{\UPSTItitreClasseComp}{PCSI-PSI}}
+    \or %MPSI/MP
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{2}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{2}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{MPSI-MP}}{\newcommand*{\UPSTItitreClasseComp}{MPSI-MP}}
+    \or %TSI
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{TSI}}{\newcommand*{\UPSTItitreClasseComp}{TSI}}
+    \or %ATS
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{0}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{ATS}}{\newcommand*{\UPSTItitreClasseComp}{ATS}}
+    \or %MP2I/PSI
+      \ifdef{\UPSTIidFilierePourDiagrammeCompetences}{\renewcommand{\UPSTIidFilierePourDiagrammeCompetences}{1}}{\newcommand{\UPSTIidFilierePourDiagrammeCompetences}{1}}
+      \ifdef{\UPSTItitreClasseComp}{\renewcommand*{\UPSTItitreClasseComp}{MP2I-PSI}}{\newcommand*{\UPSTItitreClasseComp}{MP2I-PSI}}
+    \else Erreur dans UPSTIidFiliereTmp (Trop grand)
+  \fi
+
+  % Définition des angles pour les différentes filières
+  % PTSI, PT, TSI, ATS
+  \ifdef{\UPSTIangleCompAnalyser}{\renewcommand*{\UPSTIangleCompAnalyser}{115}}{\newcommand*{\UPSTIangleCompAnalyser}{0}}
+  \ifdef{\UPSTIangleCompModeliser}{\renewcommand*{\UPSTIangleCompModeliser}{115}}{\newcommand*{\UPSTIangleCompModeliser}{0}}
+  \ifdef{\UPSTIangleCompResoudre}{\renewcommand*{\UPSTIangleCompResoudre}{115}}{\newcommand*{\UPSTIangleCompResoudre}{0}}
+  \ifdef{\UPSTIangleCompExperimenter}{\renewcommand*{\UPSTIangleCompExperimenter}{115}}{\newcommand*{\UPSTIangleCompExperimenter}{0}}
+  \ifdef{\UPSTIangleCompCommuniquer}{\renewcommand*{\UPSTIangleCompCommuniquer}{115}}{\newcommand*{\UPSTIangleCompCommuniquer}{0}}
+  \ifdef{\UPSTIangleCompConcevoir}{\renewcommand*{\UPSTIangleCompConcevoir}{115}}{\newcommand*{\UPSTIangleCompConcevoir}{0}}
+  \ifdef{\UPSTIangleCompRealiser}{\renewcommand*{\UPSTIangleCompRealiser}{115}}{\newcommand*{\UPSTIangleCompRealiser}{0}}
+
+  \ifcase\UPSTIidFilierePourDiagrammeCompetences
+    % 0: PTSI, PT, TSI, ATS -> déjà définis
+    \renewcommand*{\UPSTIangleCompAnalyser}{115}
+    \renewcommand*{\UPSTIangleCompModeliser}{65}
+    \renewcommand*{\UPSTIangleCompResoudre}{10}
+    \renewcommand*{\UPSTIangleCompExperimenter}{-36}
+    \renewcommand*{\UPSTIangleCompCommuniquer}{-90}
+    \renewcommand*{\UPSTIangleCompConcevoir}{-144}
+    \renewcommand*{\UPSTIangleCompRealiser}{170}
+  \or
+    % 1: MP2I, PCSI, PSI
+    \renewcommand*{\UPSTIangleCompAnalyser}{120}
+    \renewcommand*{\UPSTIangleCompModeliser}{60}
+    \renewcommand*{\UPSTIangleCompResoudre}{0}
+    \renewcommand*{\UPSTIangleCompExperimenter}{-60}
+    \renewcommand*{\UPSTIangleCompCommuniquer}{-120}
+    \renewcommand*{\UPSTIangleCompConcevoir}{180}
+  \else
+    % 2: MPSI, MP
+    \renewcommand*{\UPSTIangleCompAnalyser}{90}
+    \renewcommand*{\UPSTIangleCompModeliser}{14}
+    \renewcommand*{\UPSTIangleCompResoudre}{-54}
+    \renewcommand*{\UPSTIangleCompExperimenter}{-126}
+    \renewcommand*{\UPSTIangleCompCommuniquer}{166}
+  \fi
+
+  % Dessin du diagramme
+  \begin{tikzpicture}[scale=\ifstrempty{#1}{0.9}{#1}, every node/.style={scale=\ifstrempty{#1}{0.9}{#1}}]
+
+    % Styles des boîtes actives/inactives
+    \tikzstyle{boiteCompetence}=[rounded corners=2mm,draw,anchor=center,thick,minimum height=1cm,text width=2.3cm,align=center]
+    \tikzstyle{actif}=[thick]
+    \tikzstyle{inactif}=[dotted, thin, couleurCompetenceInactive]
+
+    % Compétence centrale
+    \node[boiteCompetence,couleurDefaultTitreClasse,fill=couleurDefaultTitreClasse!10, minimum height=1.5cm, minimum width=3.2cm] (centre) at (0,0) {\normalsize Compétences\\ \UPSTItitreClasseComp};
+
+    % Ellipse pour le positionnement des compétences
+    \begin{scope}[xscale=2]
+      \coordinate (nodeAnalyser) at (\UPSTIangleCompAnalyser:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeModeliser) at (\UPSTIangleCompModeliser:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeResoudre) at (\UPSTIangleCompResoudre:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeExperimenter) at (\UPSTIangleCompExperimenter:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeCommuniquer) at (\UPSTIangleCompCommuniquer:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeConcevoir) at (\UPSTIangleCompConcevoir:\UPSTIcompetencesRayonEllipse);
+      \coordinate (nodeRealiser) at (\UPSTIangleCompRealiser:\UPSTIcompetencesRayonEllipse);
+    \end{scope}
+
+    % Compétences
+    \node[boiteCompetence,couleurDefaultAnalyser,\UPSTIcompetenceActifInactif{#3}] at (nodeAnalyser) {\normalsize Analyser};
+    \node[boiteCompetence,couleurDefaultModeliser,\UPSTIcompetenceActifInactif{#4}] at (nodeModeliser) {\normalsize Modéliser};
+    \node[boiteCompetence,couleurDefaultResoudre,\UPSTIcompetenceActifInactif{#5}] at (nodeResoudre) {\normalsize Résoudre};
+    \node[boiteCompetence,couleurDefaultExperimenter,\UPSTIcompetenceActifInactif{#6}] at (nodeExperimenter) {\normalsize Expérimenter};
+    \node[boiteCompetence,couleurDefaultCommuniquer,\UPSTIcompetenceActifInactif{#7}] at (nodeCommuniquer) {\normalsize Communiquer};
+    \ifnumequal{1}{\UPSTIidFilierePourDiagrammeCompetences}{
+      \node[boiteCompetence,couleurDefaultConcevoir,\UPSTIcompetenceActifInactif{#8}] at (nodeConcevoir) {\normalsize Concevoir};
+    }{}
+    \ifnumequal{0}{\UPSTIidFilierePourDiagrammeCompetences}{
+      \node[boiteCompetence,couleurDefaultConcevoir,\UPSTIcompetenceActifInactif{#8}] at (nodeConcevoir) {\normalsize Concevoir};
+      \node[boiteCompetence,couleurDefaultRealiser,\UPSTIcompetenceActifInactif{#9}] at (nodeRealiser) {\normalsize Réaliser};
+    }{}
+  \end{tikzpicture}
+}
+
+%--------------------------------------------------------%
+% Diagramme des écarts
+%--------------------------------------------------------%
+% Personnalisation (attention, c'est pas très robuste...)
+\newcommand*{\UPSTIcompetencesRayonInt}{1.3}
+\newcommand*{\UPSTIcompetencesRayonExt}{1.8}
+
+% #1: échelle, #2-4: mise en valeur des écarts étudiés, #5-7: chemin des images si besoin de les changer
+\newcommandx {\UPSTIdiagrammeEcarts}[7][1=,2=1,3=1,4=1,5=,6=,7=]{
+  \begin{tikzpicture}[scale=\ifstrempty{#1}{1}{#1}, every node/.style={scale=\ifstrempty{#1}{1}{#1}}]
+
+    \tikzstyle{ellipseSysteme}=[draw,ellipse,anchor=center,very thick, minimum width=3cm, minimum height=1.6cm]
+    \tikzstyle{ellipseText}=[align=center,execute at begin node=\setlength{\baselineskip}{1em}]
+    \tikzstyle{performances}=[align=center,execute at begin node=\setlength{\baselineskip}{1em}]
+    \tikzstyle{fleche}=[>=latex,<->,line width=2pt]
+    \tikzstyle{etiquette}=[execute at begin node=\setlength{\baselineskip}{1em}]
+
+    % On grise les écarts non étudiés
+    \ifnumequal{0}{#2}{\definecolor{couleurFlecheHG}{HTML}{AAAAAA}}{}
+    \ifnumequal{0}{#3}{\definecolor{couleurFlecheB}{HTML}{AAAAAA}}{}
+    \ifnumequal{0}{#4}{\definecolor{couleurFlecheHD}{HTML}{AAAAAA}}{}
+
+    % Ellipse pour le positionnement des petites ellipses
+    \begin{scope}[xscale=2]
+
+      \draw[couleurSys, fill=couleurFondSys] (0,0) circle (\UPSTIcompetencesRayonInt);
+      \draw[align=center] (0,0) node {Système réel\\ pluritechnologique};
+
+      \coordinate (nodeCdc) at (90:\UPSTIcompetencesRayonExt);
+      \coordinate (nodeVirtuel) at (-30:\UPSTIcompetencesRayonExt);
+      \coordinate (nodeMateriel) at (-150:\UPSTIcompetencesRayonExt);
+
+      \draw[fleche,couleurFlecheHD] (5:1.6) arc (5:55:1.6 and 2) node[etiquette,couleurFlecheHD,midway, align=left, above right=-2mm and 3mm] {\footnotesize Écart entre performances\\ \footnotesize attendues et simulées};
+      \begin{scope}[xscale=-1]
+        \draw[fleche,couleurFlecheHG] (5:1.6) arc (5:55:1.6 and 2) node[etiquette,couleurFlecheHG,midway, align=right, above left=-2mm and 3mm] {\footnotesize Écart entre performances\\ \footnotesize attendues et mesurées};
+      \end{scope}
+      \draw[fleche,couleurFlecheB] (-115:1.8) arc (-115:-65:1.8 and 3) node[etiquette,couleurFlecheB,midway, align=center, below=2mm] {\footnotesize Écart entre performances\\ \footnotesize simulées et mesurées};
+    \end{scope}
+
+    % Ellipses
+    \node[ellipseSysteme, couleurSysCdc, fill=couleurFondSysCdc] at (nodeCdc) {};
+    \node[ellipseSysteme, couleurSysVirtuel, fill=couleurFondSysVirtuel] at (nodeVirtuel) {};
+    \node[ellipseSysteme, couleurSysMateriel, fill=couleurFondSysMateriel] at (nodeMateriel) {};
+    \node[ellipseText] at (nodeCdc) {\footnotesize Cahier des\\ \footnotesize charges\\ \footnotesize Besoin};
+    \node[ellipseText] at (nodeVirtuel) {\footnotesize Système\\ \footnotesize virtuel};
+    \node[ellipseText] at (nodeMateriel) {\footnotesize Système\\ \footnotesize matériel};
+
+
+    % Performances
+    \node[performances] (perfCdc) at ($(nodeCdc)+(0,1.5)$) {\scriptsize \textbf{Performances}\\ \scriptsize \textbf{attendues}};
+    \node[performances] at ($(nodeVirtuel)+(2.8,0)$) {\scriptsize \textbf{Performances}\\ \scriptsize \textbf{simulées}};
+    \node[performances] at ($(nodeMateriel)+(-2.8,0)$) {\scriptsize \textbf{Performances}\\ \scriptsize \textbf{mesurées}};
+
+    % Besoin
+    \fill[couleurSymbolePower] (perfCdc)+(-3.5,0) node (nodeBesoin) {} circle (0.4);
+    \draw[ultra thick] (nodeBesoin)+(65:0.25) arc (65:-245:0.25);
+    \draw[ultra thick] (nodeBesoin.center) --++ (0,0.32);
+    \node[performances] at ($(nodeBesoin)+(-1.5,0)$) {\scriptsize \textbf{Expression}\\ \scriptsize \textbf{du besoin}};
+    \draw[fleche,couleurFlecheBesoin,->] ($(nodeBesoin)+(0.7,0)$) to[bend left] ($(nodeBesoin)+(2.1,-0.9)$);
+
+  \end{tikzpicture}
+}
+
+
+%==============================================================================%
+% Compétences
+%==============================================================================%
+% Filière (1er argument):
+% 1- TSI
+% 2- PTSI/PT
+% 3- PCSI/PSI
+% 4- MPSI/MP
+% 5- ATS
+% 6- MP2I/PSI
+\newcommandx{\UPSTIcompetence}[3][1=,3=0]{
+
+  % Initialisation
+  \ifdef{\UPSTIcouleurCompetence}{}{\newcommand{\UPSTIcouleurCompetence}{couleurCompetenceA}}
+  \ifdef{\UPSTIintituleCompetence}{}{\newcommand{\UPSTIintituleCompetence}{Compétence}}
+  \ifdef{\UPSTIcompCouleur}{\renewcommand{\UPSTIcompCouleur}{}}{\newcommand{\UPSTIcompCouleur}{}}
+  \ifdef{\UPSTIcompIntitule}{\renewcommand{\UPSTIcompIntitule}{}}{\newcommand{\UPSTIcompIntitule}{}}
+  \ifdef{\UPSTIcompSemestre}{\renewcommand{\UPSTIcompSemestre}{}}{\newcommand{\UPSTIcompSemestre}{}}
+
+  % Intégration avec EPBCours
+  \UPSTIdetermineIdFiliere
+
+  % Filiere (par défaut PTSI/PT - TSI - ATS) - le 1er paramètre facultatif supplante idFiliere
+  \ifstrempty{#1}
+  {
+    \ifdef{\UPSTIidFiliereTmp}{\renewcommand{\UPSTIidFiliereTmp}{\UPSTIidFiliere}}{\newcommand{\UPSTIidFiliereTmp}{\UPSTIidFiliere}}
+  }{
+    \ifdef{\UPSTIidFiliereTmp}{\renewcommand{\UPSTIidFiliereTmp}{#1}}{\newcommand{\UPSTIidFiliereTmp}{#1}}
+  }
+
+  % On définit les compétences suivant la filière
+  \ifcase\UPSTIidFiliereTmp
+    Erreur dans le code filière (=0)
+
+    %--------------------------------------------------------%
+    % PTSI/PT
+    %--------------------------------------------------------%
+    \or
+    \ifthenelse{\equal{#2}{A}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser}}{}
+    \ifthenelse{\equal{#2}{A1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le besoin et les exigences}}{}
+    \ifthenelse{\equal{#2}{A1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décrire le besoin et les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Traduire un besoin fonctionnel en exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les domaines d'application et les critères technico-économiques et environnementaux.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Qualifier et quantifier les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Évaluer l'impact environnemental et sociétal.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les frontières de l'analyse}}{}
+    \ifthenelse{\equal{#2}{A2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Isoler un système et justifier l'isolement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les éléments influents du milieu extérieur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés traversant la frontière d'étude.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser l'organisation fonctionnelle et structurelle}}{}
+    \ifthenelse{\equal{#2}{A3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Associer les fonctions aux constituants.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix des constituants dédiés aux fonctions d'un système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les chaines fonctionnelles du système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les liens entre les chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine d'information.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un algorithme. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les principes d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier les architectures matérielles et fonctionnelles d'un réseau de communication.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décoder une trame en vue d'analyser les différents champs et les données échangées.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter tout ou partie de l'évolution temporelle d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la structure d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A4}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les performances et les écarts}}{}
+    \ifthenelse{\equal{#2}{A4-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Extraire un indicateur de performance pertinent à partir du cahier des charges ou de résultats issus de l'expérimentation ou de la simulation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser les écarts entre les performances.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter et vérifier la cohérence des résultats obtenus expérimentalement, analytiquement ou numériquement. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Rechercher et proposer des causes aux écarts constatés.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A5}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un compromis produit-procédés-matériaux}}{}
+    \ifthenelse{\equal{#2}{A5-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un indicateur de performance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Comparer qualitativement les caractéristiques physiques des matériaux.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un matériau et/ou d'un procédé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le besoin fonctionnel d'une spécification.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A5-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décoder les spécifications géométriques par taille, par zone et par gabarit.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A5-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le lien entre la liaison mécanique et les systèmes de référence associés aux surfaces des composants participants.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser}}{}
+    \ifthenelse{\equal{#2}{B1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir les grandeurs physiques et les caractériser}}{}
+    \ifthenelse{\equal{#2}{B1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs d'entrée et de sortie d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les paramètres d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer des hypothèses nécessaires à la modélisation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle de connaissance et de comportement}}{}
+    \ifthenelse{\equal{#2}{B2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir un modèle adapté aux performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Compléter un modèle multiphysique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle aux composants des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de connaissance par des fonctions de transfert.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser le signal d'entrée.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de comportement à partir d'une réponse temporelle ou fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un système par schéma-blocs.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un correcteur numérique. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Déterminer les caractéristiques d'un solide ou d'un ensemble de solides indéformables.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Intégrer ou modifier une pièce dans un assemblage à l'aide d'un modeleur volumique 3D.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer une modélisation des liaisons avec leurs caractéristiques géométriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle cinématique paramétré à partir d'un système réel, d'une maquette numérique ou d'un plan d'ensemble.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la cinématique d'un ensemble de solides.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser les petits déplacements.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-16}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser une action mécanique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-17}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle de mécanisme.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-18}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier un modèle pour le rendre isostatique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-19}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle poutre à un solide.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-20}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Décrire le comportement d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-21}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser les convertisseurs statiques d'énergie.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-22}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un convertisseur électromécanique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-23}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la commande d'un ensemble asservi constitué du modulateur d'énergie, de la machine électrique et de sa charge.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Valider un modèle}}{}
+    \ifthenelse{\equal{#2}{B3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Vérifier la cohérence du modèle choisi en confrontant les résultats analytiques et/ou numériques aux résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Préciser les limites de validité d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier les paramètres et enrichir le modèle pour minimiser l'écart entre les résultats analytiques et/ou numériques et les résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre}}{}
+    \ifthenelse{\equal{#2}{C1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de résolution}}{}
+    \ifthenelse{\equal{#2}{C1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'évaluer les performances des systèmes asservis.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Choisir une démarche de résolution d'un problème d'ingénierie numérique ou d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'obtenir une loi entrée-sortie géométrique. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant la détermination d'une action mécanique inconnue ou d'une loi de mouvement.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant de déterminer des grandeurs électriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant de déterminer les contraintes et/ou les déplacements le long d'une poutre.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution analytique}}{}
+    \ifthenelse{\equal{#2}{C2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse temporelle.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les performances d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le mouvement d'un repère par rapport à un autre repère.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les relations entre les grandeurs géométriques ou cinématiques. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en statique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en dynamique dans le cas où le mouvement est imposé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la loi de mouvement dans le cas où les efforts extérieurs sont connus.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les grandeurs relatives au comportement d'une poutre.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les signaux électriques dans les circuits.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution numérique}}{}
+    \ifthenelse{\equal{#2}{C3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mener une simulation numérique. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre numériquement une équation ou un système d'équations. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre un problème en utilisant une solution d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Expérimenter}}{}
+    \ifthenelse{\equal{#2}{D1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système}}{}
+    \ifthenelse{\equal{#2}{D1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système en suivant un protocole.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Repérer les constituants réalisant les principales fonctions des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs physiques d'effort et de flux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer et justifier un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir le protocole en fonction de l'objectif visé.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{D2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les configurations matérielles et logicielles du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les réglages du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir la grandeur physique à mesurer ou justifier son choix.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les entrées à imposer et les sorties pour identifier un modèle de comportement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un capteur ou d'un appareil de mesure vis-à-vis de la grandeur physique à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Régler les paramètres de fonctionnement d'un système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un appareil de mesure adapté à la caractéristique de la grandeur à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Effectuer des traitements à partir de données. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de mesure.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de méthode.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Communiquer}}{}
+    \ifthenelse{\equal{#2}{E1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher et traiter des informations}}{}
+    \ifthenelse{\equal{#2}{E1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher des informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Distinguer les différents types de documents et de données en fonction de leurs usages.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Vérifier la pertinence des informations (obtention, véracité, fiabilité et précision de l'information).}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Extraire les informations utiles d'un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Lire et décoder un document technique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{E1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Trier les informations selon des critères.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Effectuer une synthèse des informations disponibles dans un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire et échanger de l'information}}{}
+    \ifthenelse{\equal{#2}{E2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Choisir un outil de communication adapté à l'interlocuteur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Faire preuve d'écoute et confronter des points de vue.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter les étapes de son travail.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter de manière argumentée une synthèse des résultats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire des documents techniques adaptés à l'objectif de la communication. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{E2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Utiliser un vocabulaire technique, des symboles et des unités adéquats.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir}}{}
+    \ifthenelse{\equal{#2}{F1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir l'architecture d'un système innovant}}{}
+    \ifthenelse{\equal{#2}{F1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer une architecture fonctionnelle et organique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Intégrer les contraintes d'écoconception dans les architectures proposées.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et choisir des solutions techniques}}{}
+    \ifthenelse{\equal{#2}{F2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et hiérarchiser des critères de choix.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Choisir les composants de la chaine d'information.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Choisir les composants de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Modifier la commande pour faire évoluer le comportement du système. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Dimensionner une solution technique choisie}}{}
+    \ifthenelse{\equal{#2}{F3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Dimensionner un composant des chaines fonctionnelles à partir d'une documentation technique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir et dimensionner une liaison mécanique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir une pièce en optimisant le triptyque produit-procédés-matériaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser}}{}
+    \ifthenelse{\equal{#2}{G1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser tout ou partie d'un prototype}}{}
+    \ifthenelse{\equal{#2}{G1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser tout ou partie de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Intégrer les composants des chaines fonctionnelles dans un prototype.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Implémenter et exécuter un programme sur une cible.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Valider le fonctionnement du prototype.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Industrialiser un produit}}{}
+    \ifthenelse{\equal{#2}{G2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Choisir et ordonnancer des procédés de fabrication du matériau à la pièce finie.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{G2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Évaluer la capacité d'un procédé à réaliser une pièce plastique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{G2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Évaluer la capacité d'un procédé à réaliser une pièce composite.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{G2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Évaluer la capacité d'un procédé à réaliser une pièce métallique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{G2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Évaluer la capacité d'un procédé à réaliser des opérations de finition.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{G2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Contrôler la conformité géométrique et dimensionnelle d'un produit.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+
+    %--------------------------------------------------------%
+    % PCSI/PSI
+    %--------------------------------------------------------%
+    \or
+    \ifthenelse{\equal{#2}{A}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser}}{}
+    \ifthenelse{\equal{#2}{A1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le besoin et les exigences}}{}
+    \ifthenelse{\equal{#2}{A1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décrire le besoin et les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Traduire un besoin fonctionnel en exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les domaines d'application et les critères technico-économiques et environnementaux.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Qualifier et quantifier les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Évaluer l'impact environnemental et sociétal.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les frontières de l'analyse}}{}
+    \ifthenelse{\equal{#2}{A2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Isoler un système et justifier l'isolement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les éléments influents du milieu extérieur. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés traversant la frontière d'étude.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser l'organisation fonctionnelle et structurelle}}{}
+    \ifthenelse{\equal{#2}{A3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Associer les fonctions aux constituants.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix des constituants dédiés aux fonctions d'un système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les chaines fonctionnelles du système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les liens entre les chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine d'information.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un algorithme. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les principes d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter tout ou partie de l'évolution temporelle d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la structure d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A4}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les performances et les écarts}}{}
+    \ifthenelse{\equal{#2}{A4-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Extraire un indicateur de performance pertinent à partir du cahier des charges ou de résultats issus de l'expérimentation ou de la simulation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser les écarts entre les performances.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter et vérifier la cohérence des résultats obtenus expérimentalement, analytiquement ou numériquement. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Rechercher et proposer des causes aux écarts constatés.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser}}{}
+    \ifthenelse{\equal{#2}{B1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir les grandeurs physiques et les caractériser}}{}
+    \ifthenelse{\equal{#2}{B1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs d'entrée et de sortie d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les paramètres d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier et justifier les hypothèses nécessaires à la modélisation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle de connaissance et de comportement}}{}
+    \ifthenelse{\equal{#2}{B2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir un modèle adapté aux performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Compléter un modèle multiphysique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle aux composants des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de connaissance par des fonctions de transfert.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser le signal d'entrée.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de comportement à partir d'une réponse temporelle ou fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un système par schéma-blocs. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un correcteur numérique. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Déterminer les caractéristiques d'un solide ou d'un ensemble de solides indéformables.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer une modélisation des liaisons avec leurs caractéristiques géométriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle cinématique à partir d'un système réel ou d'une maquette numérique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la cinématique d'un ensemble de solides.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser une action mécanique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle de mécanisme.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-16}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier un modèle pour le rendre isostatique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-17}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Décrire le comportement d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Valider un modèle}}{}
+    \ifthenelse{\equal{#2}{B3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Vérifier la cohérence du modèle choisi en confrontant les résultats analytiques et/ou numériques aux résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Préciser les limites de validité d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier les paramètres et enrichir le modèle pour minimiser l'écart entre les résultats analytiques et/ou numériques et les résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre}}{}
+    \ifthenelse{\equal{#2}{C1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de résolution}}{}
+    \ifthenelse{\equal{#2}{C1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'évaluer les performances des systèmes asservis.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Choisir une démarche de résolution d'un problème d'ingénierie numérique ou d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'obtenir une loi entrée-sortie géométrique. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant la détermination d'une action mécanique inconnue ou d'une loi de mouvement.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution analytique}}{}
+    \ifthenelse{\equal{#2}{C2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse temporelle.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les performances d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le mouvement d'un repère par rapport à un autre repère.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les relations entre les grandeurs géométriques ou cinématiques. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en statique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en dynamique dans le cas où le mouvement est imposé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la loi de mouvement dans le cas où les efforts extérieurs sont connus.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution numérique}}{}
+    \ifthenelse{\equal{#2}{C3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mener une simulation numérique. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre numériquement une équation ou un système d'équations. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre un problème en utilisant une solution d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Expérimenter}}{}
+    \ifthenelse{\equal{#2}{D1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système}}{}
+    \ifthenelse{\equal{#2}{D1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système en suivant un protocole.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Repérer les constituants réalisant les principales fonctions des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs physiques d'effort et de flux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer et justifier un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir le protocole en fonction de l'objectif visé.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{D2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les configurations matérielles et logicielles du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les réglages du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir la grandeur physique à mesurer ou justifier son choix.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les entrées à imposer et les sorties pour identifier un modèle de comportement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un capteur ou d'un appareil de mesure vis-à-vis de la grandeur physique à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Régler les paramètres de fonctionnement d'un système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un appareil de mesure adapté à la caractéristique de la grandeur à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Effectuer des traitements à partir de données. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de mesure.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de méthode.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Communiquer}}{}
+    \ifthenelse{\equal{#2}{E1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher et traiter des informations}}{}
+    \ifthenelse{\equal{#2}{E1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher des informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Distinguer les différents types de documents et de données en fonction de leurs usages.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Vérifier la pertinence des informations (obtention, véracité, fiabilité et précision de l'information).}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Extraire les informations utiles d'un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Lire et décoder un document technique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{E1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Trier les informations selon des critères.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Effectuer une synthèse des informations disponibles dans un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire et échanger de l'information}}{}
+    \ifthenelse{\equal{#2}{E2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Choisir un outil de communication adapté à l'interlocuteur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Faire preuve d'écoute et confronter des points de vue.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter les étapes de son travail.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter de manière argumentée une synthèse des résultats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire des documents techniques adaptés à l'objectif de la communication. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{E2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Utiliser un vocabulaire technique, des symboles et des unités adéquats}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir}}{}
+    \ifthenelse{\equal{#2}{F1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir l'architecture d'un système innovant}}{}
+    \ifthenelse{\equal{#2}{F1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer une architecture fonctionnelle et organique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et choisir des solutions techniques}}{}
+    \ifthenelse{\equal{#2}{F2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Modifier la commande pour faire évoluer le comportement du système. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+
+    %--------------------------------------------------------%
+    % MPSI/MP
+    %--------------------------------------------------------%
+    \or
+    \ifthenelse{\equal{#2}{A}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser}}{}
+    \ifthenelse{\equal{#2}{A1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le besoin et les exigences}}{}
+    \ifthenelse{\equal{#2}{A1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décrire le besoin et les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Traduire un besoin fonctionnel en exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les domaines d'application et les critères technico-économiques et environnementaux.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Qualifier et quantifier les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Évaluer l'impact environnemental et sociétal.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les frontières de l'analyse}}{}
+    \ifthenelse{\equal{#2}{A2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Isoler un système et justifier l'isolement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les éléments influents du milieu extérieur. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés traversant la frontière d'étude.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser l'organisation fonctionnelle et structurelle}}{}
+    \ifthenelse{\equal{#2}{A3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Associer les fonctions aux constituants.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix des constituants dédiés aux fonctions d'un système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les chaines fonctionnelles du système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les liens entre les chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine d'information.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un algorithme. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les principes d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter tout ou partie de l'évolution temporelle d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la structure d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A4}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les performances et les écarts}}{}
+    \ifthenelse{\equal{#2}{A4-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Extraire un indicateur de performance pertinent à partir du cahier des charges ou de résultats issus de l'expérimentation ou de la simulation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser les écarts entre les performances.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter et vérifier la cohérence des résultats obtenus expérimentalement, analytiquement ou numériquement. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Rechercher et proposer des causes aux écarts constatés.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser}}{}
+    \ifthenelse{\equal{#2}{B1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir les grandeurs physiques et les caractériser}}{}
+    \ifthenelse{\equal{#2}{B1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs d'entrée et de sortie d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les paramètres d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier et justifier les hypothèses nécessaires à la modélisation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle de connaissance et de comportement}}{}
+    \ifthenelse{\equal{#2}{B2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir un modèle adapté aux performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Compléter un modèle multiphysique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle aux composants des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de connaissance par des fonctions de transfert.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser le signal d'entrée.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de comportement à partir d'une réponse temporelle ou fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un système par schéma-blocs.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Déterminer les caractéristiques d'un solide ou d'un ensemble de solides indéformables.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer une modélisation des liaisons avec leurs caractéristiques géométriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle cinématique à partir d'un système réel ou d'une maquette numérique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la cinématique d'un ensemble de solides.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser une action mécanique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle de mécanisme.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Décrire le comportement d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Valider un modèle}}{}
+    \ifthenelse{\equal{#2}{B3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Vérifier la cohérence du modèle choisi en confrontant les résultats analytiques et/ou numériques aux résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Préciser les limites de validité d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier les paramètres et enrichir le modèle pour minimiser l'écart entre les résultats analytiques et/ou numériques et les résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre}}{}
+    \ifthenelse{\equal{#2}{C1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de résolution}}{}
+    \ifthenelse{\equal{#2}{C1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'évaluer les performances des systèmes asservis.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Choisir une démarche de résolution d'un problème d'ingénierie numérique ou d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'obtenir une loi entrée-sortie géométrique. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant la détermination d'une action mécanique inconnue ou d'une loi de mouvement.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution analytique}}{}
+    \ifthenelse{\equal{#2}{C2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse temporelle.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse fréquentielle.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les performances d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le mouvement d'un repère par rapport à un autre repère.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les relations entre les grandeurs géométriques ou cinématiques. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en statique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en dynamique dans le cas où le mouvement est imposé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la loi de mouvement dans le cas où les efforts extérieurs sont connus.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution numérique}}{}
+    \ifthenelse{\equal{#2}{C3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mener une simulation numérique. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre numériquement une équation ou un système d'équations. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre un problème en utilisant une solution d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Expérimenter}}{}
+    \ifthenelse{\equal{#2}{D1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système}}{}
+    \ifthenelse{\equal{#2}{D1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système en suivant un protocole.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Repérer les constituants réalisant les principales fonctions des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs physiques d'effort et de flux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer et justifier un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les configurations matérielles et logicielles du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les réglages du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir la grandeur physique à mesurer ou justifier son choix.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les entrées à imposer et les sorties pour identifier un modèle de comportement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Régler les paramètres de fonctionnement d'un système.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un appareil de mesure adapté à la caractéristique de la grandeur à mesurer.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Effectuer des traitements à partir de données. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de mesure.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de méthode.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Communiquer}}{}
+    \ifthenelse{\equal{#2}{E1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher et traiter des informations}}{}
+    \ifthenelse{\equal{#2}{E1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher des informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Distinguer les différents types de documents et de données en fonction de leurs usages.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Vérifier la pertinence des informations (obtention, véracité, fiabilité et précision de l'information).}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Extraire les informations utiles d'un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Lire et décoder un document technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Trier les informations selon des critères.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Effectuer une synthèse des informations disponibles dans un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire et échanger de l'information}}{}
+    \ifthenelse{\equal{#2}{E2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Choisir un outil de communication adapté à l'interlocuteur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Faire preuve d'écoute et confronter des points de vue.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter les étapes de son travail.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter de manière argumentée une synthèse des résultats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Utiliser un vocabulaire technique, des symboles et des unités adéquats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+
+    %--------------------------------------------------------%
+    % TSI
+    %--------------------------------------------------------%
+    \or
+    \ifthenelse{\equal{#2}{A}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser}}{}
+    \ifthenelse{\equal{#2}{A1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le besoin et les exigences}}{}
+    \ifthenelse{\equal{#2}{A1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décrire le besoin et les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Traduire un besoin fonctionnel en exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les domaines d'application et les critères technico-économiques et environnementaux.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Qualifier et quantifier les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Évaluer l'impact environnemental et sociétal.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les frontières de l'analyse}}{}
+    \ifthenelse{\equal{#2}{A2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Isoler un système et justifier l'isolement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les éléments influents du milieu extérieur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés traversant la frontière d'étude.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser l'organisation fonctionnelle et structurelle}}{}
+    \ifthenelse{\equal{#2}{A3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Associer les fonctions aux constituants.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix des constituants dédiés aux fonctions d'un système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les chaînes fonctionnelles du système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les liens entre les chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier l'architecture structurelle d'un système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés entre les différents constituants.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaîne de puissance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaîne d'information.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser la structure d'un programme informatique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un algorithme.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les principes d'intelligence artificielle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier les architectures matérielles et fonctionnelles d'un réseau de communication.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décoder une trame en vue d'analyser les différents champs et les données échangées.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter tout ou partie de l'évolution temporelle d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la structure d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A4}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les performances et les écarts}}{}
+    \ifthenelse{\equal{#2}{A4-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Extraire un indicateur de performance pertinent à partir des exigences ou de résultats issus de l'expérimentation ou de la simulation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser les écarts entre les performances.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter et vérifier la cohérence des résultats obtenus expérimentalement, analytiquement ou numériquement.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Rechercher et proposer des causes aux écarts constatés.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le type de correction nécessaire pour atteindre les performances attendues.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A4-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les écarts entre les performances d'un prototype et les exigences.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser un compromis produit-procédés-matériaux}}{}
+    \ifthenelse{\equal{#2}{A5-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un indicateur de performance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Comparer qualitativement les caractéristiques physiques des matériaux.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un matériau et/ou d'un procédé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les résultats d'une simulation numérique de procédés.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A5-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le besoin fonctionnel d'une spécification.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser}}{}
+    \ifthenelse{\equal{#2}{B1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les phénomènes physiques pour les modéliser et caractériser les grandeurs nécessaires}}{}
+    \ifthenelse{\equal{#2}{B1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les phénomènes physiques à modéliser.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Caractériser les grandeurs associées utiles à la modélisation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les paramètres d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les performances à évaluer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer des hypothèses simplificatrices en fonction des objectifs visés.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle de connaissance et de comportement}}{}
+    \ifthenelse{\equal{#2}{B2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir un modèle adapté aux performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Compléter un modèle multi-physique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle aux constituants des chaînes fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un système par schéma-blocs.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de connaissance par des fonctions de transfert.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser le signal d'entrée.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de comportement à partir d'une réponse temporelle ou fréquentielle.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un correcteur numérique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Déterminer les caractéristiques d'un solide ou d'un ensemble de solides indéformables.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer une modélisation des liaisons avec leurs caractéristiques géométriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle cinématique à partir d'un système réel ou d'une maquette numérique volumique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la cinématique d'un ensemble de solides.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser une action mécanique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle de mécanisme.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-16}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier un modèle de mécanisme afin de le rendre isostatique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-17}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle poutre à un solide.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-18}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Paramétrer un modèle dans un logiciel de simulation par éléments finis.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-19}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Décrire le comportement d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-20}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser les modulateurs statiques d'énergie.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-21}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un convertisseur électromécanique en régime permanent.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-22}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la commande d'un ensemble asservi constitué du modulateur d'énergie, de la machine électrique et de sa charge.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Valider un modèle}}{}
+    \ifthenelse{\equal{#2}{B3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Vérifier la cohérence du modèle choisi en confrontant les résultats analytiques et/ou numériques aux résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Préciser les limites de validité d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier les paramètres et enrichir le modèle pour minimiser les écarts entre les résultats analytiques et/ou numériques et les résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre}}{}
+    \ifthenelse{\equal{#2}{C1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de résolution}}{}
+    \ifthenelse{\equal{#2}{C1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'évaluer les performances des systèmes asservis.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Choisir une démarche de résolution d'un problème d'ingénierie numérique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'obtenir une loi entrée-sortie géométrique ou cinématique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant la détermination d'une action mécanique inconnue ou d'une loi de mouvement.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant de déterminer des grandeurs électriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant de déterminer les contraintes et/ou les déplacements le long d'une poutre.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre une démarche de résolution analytique}}{}
+    \ifthenelse{\equal{#2}{C2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse temporelle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse fréquentielle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les performances d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le mouvement d'un repère par rapport à un autre repère.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les relations entre les grandeurs géométriques ou cinématiques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en statique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en dynamique dans le cas où le mouvement est imposé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la loi de mouvement dans le cas où les efforts extérieurs sont connus.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les grandeurs relatives au comportement d'une poutre.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les signaux électriques dans les circuits.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les conditions d'équilibre de l'association convertisseur électromécanique et charge.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le point de fonctionnement en régime permanent de l'association convertisseur électromécanique et charge.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre une démarche de résolution numérique}}{}
+    \ifthenelse{\equal{#2}{C3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mener une simulation numérique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre numériquement une équation ou un système d'équations.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre un problème en utilisant une solution d'intelligence artificielle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Effectuer des traitements à partir de données de mesures expérimentales.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Expérimenter}}{}
+    \ifthenelse{\equal{#2}{D1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Découvrir le fonctionnement d'un système pluritechnologique et le mettre en oeuvre}}{}
+    \ifthenelse{\equal{#2}{D1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre un système en suivant un protocole dans le respect des règles de sécurité.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les constituants réalisant les principales fonctions des chaînes d'information et de puissance.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les principales grandeurs physiques d'effort et de flux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer et justifier un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer un protocole en fonction de l'objectif visé.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{D2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Configurer et régler le système en fonction de l'objectif visé.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir la grandeur physique à mesurer ou justifier son choix.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un appareil de mesure ou d'un capteur vis-à-vis de la grandeur physique à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les grandeurs d'entrées à imposer et les grandeurs de sorties à acquérir pour identifier un modèle de comportement sur un système ou sur un constituant du système.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre un appareil de mesure adapté à la caractéristique de la grandeur à mesurer.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{D3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de mesure et de méthode.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Générer un programme et l'implanter dans le système cible.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Relever les grandeurs caractéristiques d'un protocole de communication.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en oeuvre une liaison entre objets communicants.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{E}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Communiquer}}{}
+    \ifthenelse{\equal{#2}{E1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher et traiter des informations}}{}
+    \ifthenelse{\equal{#2}{E1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher des informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Distinguer les différents types de documents et de données en fonction de leurs usages.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Vérifier la pertinence des informations (obtention, véracité, fiabilité et précision de l'information).}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Extraire les informations utiles d'un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Lire et interpréter un document technique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{E1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Classer les informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Effectuer une synthèse des informations disponibles dans un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire et échanger de l'information}}{}
+    \ifthenelse{\equal{#2}{E2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Choisir un outil de communication adapté au contexte.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Travailler de manière collaborative.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter et formaliser une idée.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Faire preuve d'écoute et confronter des points de vue.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter un protocole, une démarche, une solution en réponse à un besoin.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter de manière argumentée une synthèse des résultats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire des documents techniques adaptés à l'objectif de la communication.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{E2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Utiliser un vocabulaire technique, des symboles et des unités adéquats.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir}}{}
+    \ifthenelse{\equal{#2}{F1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Écoconcevoir l'architecture d'un système innovant}}{}
+    \ifthenelse{\equal{#2}{F1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer une architecture fonctionnelle et structurelle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Intégrer les contraintes d'écoconception dans les architectures proposées.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et choisir des solutions techniques}}{}
+    \ifthenelse{\equal{#2}{F2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et hiérarchiser des critères de choix.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Choisir la technologie des constituants de la chaîne d'information.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Choisir la technologie des constituants de la chaîne de puissance.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Modifier la commande pour faire évoluer le comportement du système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Dimensionner une solution technique choisie dans une démarche de développement durable}}{}
+    \ifthenelse{\equal{#2}{F3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Dimensionner un constituant des chaînes fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Écoconcevoir une pièce en optimisant le triptyque produit-procédés-matériaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser}}{}
+    \ifthenelse{\equal{#2}{G1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser tout ou partie d'un prototype}}{}
+    \ifthenelse{\equal{#2}{G1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Réaliser tout ou partie de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Instrumenter tout ou partie d'un système pour valider une exigence ou renseigner un modèle de comportement.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Intégrer les constituants correspondant à une fonction dans un prototype.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Implémenter et exécuter un programme sur une cible.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{G1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceG}\renewcommand{\UPSTIcompIntitule}{Valider le fonctionnement du prototype.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+
+    %--------------------------------------------------------%
+    % ATS
+    %--------------------------------------------------------%
+    \or
+    % Pas de réécriture des programmes d'ATS depuis 2015
+
+    %--------------------------------------------------------%
+    % MP2I/PSI
+    %--------------------------------------------------------%
+    \or
+    \ifthenelse{\equal{#2}{A}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser}}{}
+    \ifthenelse{\equal{#2}{A1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser le besoin et les exigences}}{}
+    \ifthenelse{\equal{#2}{A1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Décrire le besoin et les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Traduire un besoin fonctionnel en exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les domaines d'application et les critères technico-économiques et environnementaux.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Qualifier et quantifier les exigences.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Évaluer l'impact environnemental et sociétal.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les frontières de l'analyse}}{}
+    \ifthenelse{\equal{#2}{A2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Isoler un système et justifier l'isolement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Définir les éléments influents du milieu extérieur. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la nature des flux échangés traversant la frontière d'étude.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser l'organisation fonctionnelle et structurelle}}{}
+    \ifthenelse{\equal{#2}{A3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Associer les fonctions aux constituants.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Justifier le choix des constituants dédiés aux fonctions d'un système.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les chaines fonctionnelles du système.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier et décrire les liens entre les chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine de puissance.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser un constituant de la chaine d'information.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les principes d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{A3-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter tout ou partie de l'évolution temporelle d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{A3-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Identifier la structure d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{A4}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Analyser les performances et les écarts}}{}
+    \ifthenelse{\equal{#2}{A4-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Extraire un indicateur de performance pertinent à partir du cahier des charges ou de résultats issus de l'expérimentation ou de la simulation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Caractériser les écarts entre les performances.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Interpréter et vérifier la cohérence des résultats obtenus expérimentalement, analytiquement ou numériquement.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{A4-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceA}\renewcommand{\UPSTIcompIntitule}{Rechercher et proposer des causes aux écarts constatés.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser}}{}
+    \ifthenelse{\equal{#2}{B1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir les grandeurs physiques et les caractériser}}{}
+    \ifthenelse{\equal{#2}{B1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs d'entrée et de sortie d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier les paramètres d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Identifier et justifier les hypothèses nécessaires à la modélisation.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle de connaissance et de comportement}}{}
+    \ifthenelse{\equal{#2}{B2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Choisir un modèle adapté aux performances à prévoir ou à évaluer.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Compléter un modèle multiphysique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Associer un modèle aux composants des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de connaissance par des fonctions de transfert.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser le signal d'entrée.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Établir un modèle de comportement à partir d'une réponse temporelle ou fréquentielle. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser un système par schéma-blocs.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Déterminer les caractéristiques d'un solide ou d'un ensemble de solides indéformables.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-10}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer une modélisation des liaisons avec leurs caractéristiques géométriques.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-11}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Proposer un modèle cinématique à partir d'un système réel ou d'une maquette numérique.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{B2-12}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser la cinématique d'un ensemble de solides.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-13}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modéliser une action mécanique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-14}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Simplifier un modèle de mécanisme.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B2-15}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier un modèle pour le rendre isostatique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{B2-16}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Décrire le comportement d'un système séquentiel.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Valider un modèle}}{}
+    \ifthenelse{\equal{#2}{B3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Vérifier la cohérence du modèle choisi en confrontant les résultats analytiques et/ou numériques aux résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{B3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Préciser les limites de validité d'un modèle.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{B3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceB}\renewcommand{\UPSTIcompIntitule}{Modifier les paramètres et enrichir le modèle pour minimiser l'écart entre les résultats analytiques et/ou numériques et les résultats expérimentaux.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre}}{}
+    \ifthenelse{\equal{#2}{C1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de résolution}}{}
+    \ifthenelse{\equal{#2}{C1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'évaluer les performances des systèmes asservis.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Choisir une démarche de résolution d'un problème d'ingénierie numérique ou d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant d'obtenir une loi entrée-sortie géométrique. }\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Proposer une démarche permettant la détermination d'une action mécanique inconnue ou d'une loi de mouvement.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution analytique}}{}
+    \ifthenelse{\equal{#2}{C2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse temporelle.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la réponse fréquentielle.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les performances d'un système asservi.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de réglage d'un correcteur.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Caractériser le mouvement d'un repère par rapport à un autre repère.}\renewcommand{\UPSTIcompSemestre}{S1}}{}
+    \ifthenelse{\equal{#2}{C2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les relations entre les grandeurs géométriques ou cinématiques. }\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en statique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{C2-08}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer les actions mécaniques en dynamique dans le cas où le mouvement est imposé.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C2-09}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Déterminer la loi de mouvement dans le cas où les efforts extérieurs sont connus.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre une démarche de résolution numérique}}{}
+    \ifthenelse{\equal{#2}{C3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Mener une simulation numérique. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{C3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre numériquement une équation ou un système d'équations. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{C3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceC}\renewcommand{\UPSTIcompIntitule}{Résoudre un problème en utilisant une solution d'intelligence artificielle. }\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Expérimenter}}{}
+    \ifthenelse{\equal{#2}{D1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système}}{}
+    \ifthenelse{\equal{#2}{D1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un système en suivant un protocole.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Repérer les constituants réalisant les principales fonctions des chaines fonctionnelles.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les grandeurs physiques d'effort et de flux.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Proposer et justifier un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir le protocole en fonction de l'objectif visé.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{D2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les configurations matérielles et logicielles du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les réglages du système en fonction de l'objectif visé par l'expérimentation.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir la grandeur physique à mesurer ou justifier son choix.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Choisir les entrées à imposer et les sorties pour identifier un modèle de comportement.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Justifier le choix d'un capteur ou d'un appareil de mesure vis-à-vis de la grandeur physique à mesurer.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un protocole expérimental}}{}
+    \ifthenelse{\equal{#2}{D3-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Régler les paramètres de fonctionnement d'un système.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Mettre en œuvre un appareil de mesure adapté à la caractéristique de la grandeur à mesurer.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Effectuer des traitements à partir de données.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{D3-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de mesure.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{D3-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceD}\renewcommand{\UPSTIcompIntitule}{Identifier les erreurs de méthode.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Communiquer}}{}
+    \ifthenelse{\equal{#2}{E1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher et traiter des informations}}{}
+    \ifthenelse{\equal{#2}{E1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Rechercher des informations.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Distinguer les différents types de documents et de données en fonction de leurs usages.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Vérifier la pertinence des informations (obtention, véracité, fiabilité et précision de l'information).}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Extraire les informations utiles d'un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Lire et décoder un document technique.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{E1-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Trier les informations selon des critères.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E1-07}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Effectuer une synthèse des informations disponibles dans un dossier technique.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire et échanger de l'information}}{}
+    \ifthenelse{\equal{#2}{E2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Choisir un outil de communication adapté à l'interlocuteur.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-02}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Faire preuve d'écoute et confronter des points de vue.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-03}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter les étapes de son travail.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-04}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Présenter de manière argumentée une synthèse des résultats.}\renewcommand{\UPSTIcompSemestre}{S2}}{}
+    \ifthenelse{\equal{#2}{E2-05}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Produire des documents techniques adaptés à l'objectif de la communication.}\renewcommand{\UPSTIcompSemestre}{S3}}{}
+    \ifthenelse{\equal{#2}{E2-06}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceE}\renewcommand{\UPSTIcompIntitule}{Utiliser un vocabulaire technique, des symboles et des unités adéquats.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir}}{}
+    \ifthenelse{\equal{#2}{F1}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Concevoir l'architecture d'un système innovant}}{}
+    \ifthenelse{\equal{#2}{F1-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer une architecture fonctionnelle et organique.}\renewcommand{\UPSTIcompSemestre}{S4}}{}
+    \ifthenelse{\equal{#2}{F2}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Proposer et choisir des solutions techniques}}{}
+    \ifthenelse{\equal{#2}{F2-01}}{\renewcommand{\UPSTIcompCouleur}{couleurCompetenceF}\renewcommand{\UPSTIcompIntitule}{Modifier la commande pour faire évoluer le comportement du système. }\renewcommand{\UPSTIcompSemestre}{S4}}{}
+
+    \else % Erreur...
+
+  \fi
+
+  % Test pour savoir si on affiche le code ou l'intitulé
+  \ifcase#3
+    \UPSTIcompetenceCode[\UPSTIcompCouleur]{#2}
+  \or
+    \UPSTIcompIntitule
+  \or
+    \UPSTIcompSemestre
+  \fi
+}
+
+
+
+
+\endinput

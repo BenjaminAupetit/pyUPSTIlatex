@@ -1,0 +1,12 @@
+\babel@toc {french}{}\relax 
+\contentsline {section}{\numberline {1}Images}{2}{section.1}%
+\contentsline {section}{\numberline {2}Minipages}{2}{section.2}%
+\contentsline {section}{\numberline {3}Tableaux}{3}{section.3}%
+\contentsline {section}{\numberline {4}Figures de changement de base}{3}{section.4}%
+\contentsline {section}{\numberline {5}Lois de vitesse}{4}{section.5}%
+\contentsline {section}{\numberline {6}Graphes des liaisons}{4}{section.6}%
+\contentsline {section}{\numberline {7}Schémas blocs}{7}{section.7}%
+\contentsline {section}{\numberline {8}Diagrammes pédagogiques}{12}{section.8}%
+\contentsline {section}{\numberline {9}Boites pour activités}{12}{section.9}%
+\contentsline {section}{\numberline {10}Schémas cinématiques}{14}{section.10}%
+\contentsline {section}{\numberline {11}Courbes}{14}{section.11}%
