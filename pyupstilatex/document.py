@@ -2035,6 +2035,12 @@ class UPSTILatexDocument:
         build_dir = cfg.os.dossier_latex_build
         output_dir = self.file.parent
 
+        # Créer le dossier build s'il n'existe pas (pdflatex lève une erreur
+        # sur Linux/macOS si le dossier de sortie est absent)
+        if not compilation_options["dry_run"]:
+            build_dir_path_init = output_dir / build_dir
+            build_dir_path_init.mkdir(parents=True, exist_ok=True)
+
         # Pour savoir si on doit faire une compilation bibtex
         has_bibliographie = bool(
             self._metadata.get("bibliographie", {}).get("valeur", [])
