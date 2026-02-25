@@ -71,7 +71,9 @@ cd pyUPSTIlatex
 pip install -e .
 ```
 
-> **Note** : Cette commande installe automatiquement toutes les dépendances requises (PyYAML, click, python-dotenv, regex, tomli pour Python < 3.11)
+Cette commande installe automatiquement toutes les dépendances requises (PyYAML, click, python-dotenv, regex, tomli pour Python < 3.11)
+
+> **Note** : pour éviter tout problème, notamment sur Mac/Linux, il vaut mieux installer directement pyUPSTIlatex dans un environnement virtuel. Vous pouvez trouver tous les détails dans le wiki [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
 
 ## Démarrage rapide
 
