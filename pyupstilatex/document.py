@@ -2537,11 +2537,15 @@ class UPSTILatexDocument:
         passkey = f"{self._metadata.get('id_unique', {}).get('valeur', '')}".encode()
         hash_passkey = hmac.new(secret_key, passkey, hashlib.sha256).hexdigest()
 
+        # Récupération de la version du package LaTeX
+        version_info, _ = self.get_version()
+
         # Contenu du fichier info
         info_file_content = {
             "key_hash": hash_passkey,
             "metadata": self._metadata,
             "compilation_parameters": self._compilation_parameters,
+            "version": version_info,
             "compiled_files": compiled_files,
             "downloadable_files": downloadable_files,
             "other_files": other_files,
