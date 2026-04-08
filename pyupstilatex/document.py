@@ -2539,13 +2539,18 @@ class UPSTILatexDocument:
 
         # Récupération de la version du package LaTeX
         version_info, _ = self.get_version()
+        version_str = (
+            f"{version_info.get('latex')} - v{version_info.get('pyupstilatex')}"
+            if version_info
+            else None
+        )
 
         # Contenu du fichier info
         info_file_content = {
             "key_hash": hash_passkey,
             "metadata": self._metadata,
             "compilation_parameters": self._compilation_parameters,
-            "version": version_info,
+            "version": version_str,
             "compiled_files": compiled_files,
             "downloadable_files": downloadable_files,
             "other_files": other_files,
