@@ -1,3 +1,4 @@
+import fnmatch
 from pathlib import Path
 
 import click
@@ -1004,6 +1005,18 @@ def _check_path(ctx, chemin: Path):
     Retourne l'objet `UPSTILatexDocument` si tout est OK.
     """
     msg: MessageHandler = ctx.obj["msg"]
+
+    # Vérification que le fichier n'est pas dans la liste des fichiers à exclure
+    cfg = load_config()
+    exclude_patterns = list(cfg.traitement_par_lot.fichiers_a_exclure)
+    for pat in exclude_patterns:
+        if fnmatch.fnmatch(chemin.name, pat):
+            msg.info(
+                f"Fichier exclu par la configuration : {chemin.name} "
+                f"(motif : {pat})",
+                flag="error",
+            )
+            return _exit_with_separator(ctx, msg)
 
     # Vérifications du chemin
     if not chemin.exists() or not chemin.is_file():

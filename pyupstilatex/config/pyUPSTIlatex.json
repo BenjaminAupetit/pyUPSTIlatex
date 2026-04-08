@@ -1,6 +1,6 @@
 {
-  "version": "1.0.11",
-  "date": "03/04/2026",
+  "version": "1.0.12",
+  "date": "08/04/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -64,6 +64,14 @@
     }
   },
   "type_document": {
+    "programme_colle": {
+      "nom": "Programme de colle",
+      "slug": "programme_colle",
+      "affichage": "",
+      "initiales": "pkh",
+      "id_upsti_document": 15,
+      "parametres": {}
+    },
     "cours": {
       "nom": "Cours",
       "slug": "cours",
@@ -158,14 +166,6 @@
       "affichage": "Méthode",
       "initiales": "fm",
       "id_upsti_document": 7,
-      "parametres": {}
-    },
-    "programme_colle": {
-      "nom": "Programme de colle",
-      "slug": "programme_colle",
-      "affichage": "Programme de colle",
-      "initiales": "pkh",
-      "id_upsti_document": 15,
       "parametres": {}
     },
     "fiche_synthese": {
@@ -515,10 +515,10 @@
       "parent": "analyse-et-modelisation-des-mecanismes"
     },
     "cinematique": {
-      "nom": "Cinématique du solide",
+      "nom": "Cinématique",
       "slug": "cinematique",
       "code": "cin",
-      "parent": "cinematique"
+      "parent": null
     },
     "equations-mouvement": {
       "nom": "Équations de mouvement",
@@ -530,6 +530,12 @@
       "nom": "Loi entrée/sortie",
       "slug": "loi-entree-sortie",
       "code": "les",
+      "parent": "cinematique"
+    },
+    "cinematique-du-solide": {
+      "nom": "Cinématique du solide",
+      "slug": "cinematique-du-solide",
+      "code": "cins",
       "parent": "cinematique"
     },
     "cinematique-graphique": {
