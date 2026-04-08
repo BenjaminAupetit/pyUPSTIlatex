@@ -2439,7 +2439,7 @@ class UPSTILatexDocument:
             {
                 "path": fichier_zip,
                 "nature_fichier": "standard",
-                "type_fichier": "prof",
+                "type_fichier": "zip_sources",
             }
         )
         return "success", []
@@ -2483,7 +2483,7 @@ class UPSTILatexDocument:
                         {
                             "path": Path(diaporama),
                             "nature_fichier": "standard",
-                            "type_fichier": "prof",
+                            "type_fichier": "diaporama",
                         }
                     )
 
