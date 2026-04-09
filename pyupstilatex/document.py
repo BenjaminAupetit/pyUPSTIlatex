@@ -2529,6 +2529,79 @@ class UPSTILatexDocument:
         )
         other_files = [f["path"].name for f in self._liste_fichiers.get("autres", [])]
 
+        # Détermination de macro_competences_calculees
+        macro_competences_calculees = None
+        filiere_val = self._metadata.get("filiere", {}).get("raw_value", "")
+        programme_val = self._metadata.get("programme", {}).get("raw_value", "")
+        competences_raw = self._metadata.get("competences", {}).get("raw_value")
+        competences_liste = []
+        if competences_raw and filiere_val in competences_raw:
+            filiere_competences = competences_raw[filiere_val]
+            if programme_val in filiere_competences:
+                competences_liste = filiere_competences[programme_val] or []
+        if competences_liste:
+            cfg_json_mc, cfg_json_mc_errors = read_json_config()
+            if not cfg_json_mc_errors and cfg_json_mc:
+                competence_data = (
+                    cfg_json_mc.get("competence", {})
+                    .get(filiere_val, {})
+                    .get(programme_val, {})
+                )
+                # Mapping nom de macro-compétence (slugifié) → clé
+                intitule_to_mc_key = {
+                    slugify(mc_info.get("nom", "")): mc_key
+                    for mc_key, mc_info in cfg_json_mc.get(
+                        "macro_competence", {}
+                    ).items()
+                    if mc_info.get("nom")
+                }
+
+                def _find_root(code: str, data: dict, depth: int = 0) -> Optional[str]:
+                    if depth > 20:
+                        return None
+                    entry = data.get(code)
+                    if entry is None:
+                        return None
+                    if entry.get("parent") is None:
+                        return code
+                    return _find_root(entry["parent"], data, depth + 1)
+
+                root_counts: Dict[str, int] = {}
+                for code in competences_liste:
+                    root = _find_root(code, competence_data)
+                    if root is not None:
+                        root_entry = competence_data.get(root, {})
+                        intitule_slug = slugify(root_entry.get("intitule", ""))
+                        mc_key = intitule_to_mc_key.get(intitule_slug)
+                        if mc_key:
+                            root_counts[mc_key] = root_counts.get(mc_key, 0) + 1
+
+                if root_counts:
+                    total = sum(root_counts.values())
+                    percentages = {
+                        k: round(v / total * 100) for k, v in root_counts.items()
+                    }
+                    diff = 100 - sum(percentages.values())
+                    if diff != 0:
+                        max_key = max(percentages, key=lambda k: percentages[k])
+                        percentages[max_key] += diff
+                    macro_competences_calculees = percentages
+
+        if macro_competences_calculees is not None:
+            self._metadata["macro_competences_calculees"] = {
+                "valeur": macro_competences_calculees,
+                "raw_value": macro_competences_calculees,
+            }
+
+        # Détermination de domaines_calcules
+        # TODO
+
+        # Détermination de la difficulté globale du document
+        # TODO
+
+        # Détermination du pourcentage de hors-programme
+        # TODO
+
         # Ajout d'un hash pour la sécurité FTP
         import hashlib
         import hmac
