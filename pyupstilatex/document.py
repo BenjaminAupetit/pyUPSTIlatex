@@ -1761,6 +1761,9 @@ class UPSTILatexDocument:
                 # Mise à jour du cache des métadonnées
                 if self._metadata is not None:
                     self._metadata["id_unique"]["valeur"] = nouvel_id_unique
+                    self._metadata["id_unique"]["affichage"] = nouvel_id_unique
+                    self._metadata["id_unique"]["initiales"] = nouvel_id_unique
+                    self._metadata["id_unique"]["raw_value"] = nouvel_id_unique
 
                 # Il faut écrire le nouvel id dans le fichier tex
                 if not compilation_options["dry_run"]:

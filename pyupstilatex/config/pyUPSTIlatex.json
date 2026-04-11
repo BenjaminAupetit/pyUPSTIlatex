@@ -1,6 +1,6 @@
 {
-  "version": "1.0.12",
-  "date": "08/04/2026",
+  "version": "1.0.14",
+  "date": "09/04/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -477,6 +477,16 @@
       "couleur": "#FFFFFF"
     }
   },
+  "tag": {
+    "deuxieme-ordre": {
+      "nom": "Deuxième ordre",
+      "slug": "deuxieme-ordre"
+    },
+    "premier-ordre": {
+      "nom": "Premier ordre",
+      "slug": "premier-ordre"
+    }
+  },
   "thematique": {
     "analyse-et-modelisation-des-systemes": {
       "nom": "Analyse et modélisation des systèmes",
@@ -779,7 +789,7 @@
       "label": "Autres métadonnées",
       "description": "",
       "parametres": {},
-      "ordre": 35
+      "ordre": 36
     },
     "id_unique": {
       "label": "id",
@@ -902,7 +912,7 @@
     },
     "thematiques": {
       "label": "Thématiques",
-      "description": "`thematiques`: thématiques abordées par le document, par ordre d'importance décroissante. Sert à la gestion du stockage sur le ftp et au renommage automatique du nom de fichier.\r\n\r\n```\r\nthematiques: [\"pfs\",\"statique-graphique\"]\r\n```\r\n\r\n- **valeurs possibles :** thématiques définie dans `pyUPSTIlatex.json` (clé: `thematique`, champ `slug`), sous list.\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "description": "`thematiques`: thématiques abordées par le document, par ordre d'importance décroissante. Sert à la gestion du stockage sur le ftp et au renommage automatique du nom de fichier.\r\n\r\n```\r\nthematiques: [\"pfs\",\"statique-graphique\"]\r\n```\r\n\r\n- **valeurs possibles :** thématiques définies dans `pyUPSTIlatex.json` (clé: `thematique`, champ `slug`), sous forme de list.\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "join_key": "slug",
         "join_source": "thematique",
@@ -915,6 +925,21 @@
       },
       "ordre": 9
     },
+    "tags": {
+      "label": "Tags",
+      "description": "`tags`: tags abordés par le document. Sert à faciliter la recherche de documents sur le site.\r\n\r\n```\r\ntags: [\"premier-ordre\",\"laplace\"]\r\n```\r\n\r\n- **valeurs possibles :** tags définis dans `pyUPSTIlatex.json` (clé: `tag`, champ `slug`), sous forme de list.",
+      "parametres": {
+        "join_key": "slug",
+        "join_source": "tag",
+        "accepted_types": [
+          "list"
+        ],
+        "validate_rules": {
+          "in": "tag.slug"
+        }
+      },
+      "ordre": 10
+    },
     "titre": {
       "label": "Titre du document",
       "description": "`titre`: titre du document (dans le cartouche de la 1ère page)\r\n\r\n```\r\ntitre: Mon titre\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** valeur définie dans le fichier `.env`",
@@ -926,7 +951,7 @@
           "text"
         ]
       },
-      "ordre": 11
+      "ordre": 12
     },
     "titre_entete": {
       "label": "Titre du document (en-tête de pages)",
@@ -938,7 +963,7 @@
           "text"
         ]
       },
-      "ordre": 12
+      "ordre": 13
     },
     "sous_titre": {
       "label": "Sous-titre",
@@ -950,7 +975,7 @@
           "text"
         ]
       },
-      "ordre": 13
+      "ordre": 14
     },
     "en_tete_principal_custom": {
       "label": "En-tête principal (custom)",
@@ -962,7 +987,7 @@
           "text"
         ]
       },
-      "ordre": 14
+      "ordre": 15
     },
     "titre_activite": {
       "label": "Titre de l'activité",
@@ -974,7 +999,7 @@
           "text"
         ]
       },
-      "ordre": 15
+      "ordre": 16
     },
     "pre_titre_activite": {
       "label": "Pré-titre de l'activité",
@@ -986,7 +1011,7 @@
           "text"
         ]
       },
-      "ordre": 16
+      "ordre": 17
     },
     "message": {
       "label": "Message (en-tête)",
@@ -998,7 +1023,7 @@
           "text"
         ]
       },
-      "ordre": 17
+      "ordre": 18
     },
     "duree": {
       "label": "Durée",
@@ -1010,7 +1035,7 @@
           "text"
         ]
       },
-      "ordre": 18
+      "ordre": 19
     },
     "serie": {
       "label": "Série",
@@ -1022,7 +1047,7 @@
           "text"
         ]
       },
-      "ordre": 19
+      "ordre": 20
     },
     "numero": {
       "label": "Numéro",
@@ -1034,7 +1059,7 @@
           "text"
         ]
       },
-      "ordre": 20
+      "ordre": 21
     },
     "chapitre": {
       "label": "Chapitre",
@@ -1046,7 +1071,7 @@
           "text"
         ]
       },
-      "ordre": 21
+      "ordre": 22
     },
     "is_application_directe": {
       "label": "Application directe du cours",
@@ -1058,7 +1083,7 @@
           "bool"
         ]
       },
-      "ordre": 22
+      "ordre": 23
     },
     "note_bas_1ere_page": {
       "label": "Note de bas de 1ère page",
@@ -1070,7 +1095,7 @@
           "text"
         ]
       },
-      "ordre": 23
+      "ordre": 24
     },
     "is_collegial": {
       "label": "Document collégial",
@@ -1082,7 +1107,7 @@
           "bool"
         ]
       },
-      "ordre": 24
+      "ordre": 25
     },
     "auteur": {
       "label": "Auteur",
@@ -1096,7 +1121,7 @@
         ],
         "tex_command_override": "true"
       },
-      "ordre": 26
+      "ordre": 27
     },
     "sources": {
       "label": "Sources",
@@ -1108,7 +1133,7 @@
           "str"
         ]
       },
-      "ordre": 27
+      "ordre": 28
     },
     "bibliographie": {
       "label": "Bibliographie",
@@ -1120,7 +1145,7 @@
           "list"
         ]
       },
-      "ordre": 28
+      "ordre": 29
     },
     "filiere": {
       "label": "Filière",
@@ -1132,7 +1157,7 @@
           "str"
         ]
       },
-      "ordre": 30
+      "ordre": 31
     },
     "programme": {
       "label": "Programme",
@@ -1146,7 +1171,7 @@
           "text"
         ]
       },
-      "ordre": 31
+      "ordre": 32
     },
     "competences": {
       "label": "Compétences",
@@ -1162,7 +1187,7 @@
           "custom_rule": "competences"
         }
       },
-      "ordre": 32
+      "ordre": 33
     },
     "adapte_pour": {
       "label": "Adapté pour",
@@ -1175,7 +1200,7 @@
           "in": "classe.niveau"
         }
       },
-      "ordre": 33
+      "ordre": 34
     },
     "description": {
       "label": "Description",
@@ -1185,7 +1210,7 @@
           "text"
         ]
       },
-      "ordre": 34
+      "ordre": 35
     },
     "macro_competences_calculees": {
       "label": "Macro-compétences (Calculées)",
@@ -1200,7 +1225,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 36
+      "ordre": 37
     },
     "domaines_calcules": {
       "label": "Domaines (Calculés)",
@@ -1215,7 +1240,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 37
+      "ordre": 38
     },
     "difficulte_calculee": {
       "label": "Difficulté (Calculée)",
@@ -1228,7 +1253,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 38
+      "ordre": 39
     },
     "hors_programme_calcule": {
       "label": "Hors programme (Calculé)",
@@ -1241,7 +1266,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 39
+      "ordre": 40
     },
     "macro_competences_forcees": {
       "label": "Macro-compétences (Forcées)",
@@ -1256,7 +1281,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 40
+      "ordre": 41
     },
     "domaines_forces": {
       "label": "Domaines (Forcés)",
@@ -1271,7 +1296,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 41
+      "ordre": 42
     },
     "difficulte_forcee": {
       "label": "Difficulté (Forcée)",
@@ -1284,7 +1309,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 42
+      "ordre": 43
     },
     "hors_programme_force": {
       "label": "Hors programme (Forcé)",
@@ -1297,7 +1322,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 43
+      "ordre": 44
     }
   },
   "competence": {
