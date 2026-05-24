@@ -25,7 +25,9 @@
  %==============================================================================%
 %	Changelog
 %==============================================================================%
-% 2.0 - 2022/04/27 - Adaptation à la version 3.0 de UPSTI_Pedagogique
+% 2.0 - 2022/04/27 
+%  - Adaptation à la version 3.0 de UPSTI_Pedagogique
+%  - Ajout de la gestion des titres dans l'en-tête (UPSTIsurTitreEnTete)
 % 1.2 - 2021/04/04
 %  - Ajout de la gestion MP2I/MPI
 %  - Ajout de l'option : ancienProgramme
@@ -835,6 +837,7 @@
 %  - UPSTIprogramme: références au programme, dans la ligne sous le titre dans le bandeau
 %  - UPSTIserie: numéro de série (pour les TP notamment)
 %  - UPSTIsource: sources et références
+%  - UPSTIsurTitreEnTete: Titre principal (dans le bandeau de la première page)
 %  - UPSTIsousTitreEnTete: Titre principal (dans le bandeau de la première page)
 %  - UPSTItitre: titre de l'exercice
 %  - UPSTItitrePreambule: sous-titre de l'exercice
@@ -863,7 +866,7 @@
     {\begin{tabularx}{\textwidth}{m{0cm} >{\centering\arraybackslash} X  >{\centering\arraybackslash} m{2cm}}
      	\rule[-0.2cm]{0cm}{0.8cm} & \UPSTIenTetePrincipal \ifdef{\UPSTInumeroChapitre}{ - Chapitre \UPSTInumeroChapitre}{}\ifdef{\UPSTIenTetePrincipalCustom}{ - \UPSTIenTetePrincipalCustom}{} &   \tabularnewline
 % v1.0     	\rule[-1.1cm]{0cm}{2.2cm} & \huge{\textsc{\textbf{\UPSTItitreEnTete}}}  \ifdef{\UPSTIsousTitreEnTete}{\linebreak\Large{\UPSTIsousTitreEnTete}}{} &  \tabularnewline
-     	\rule{0cm}{2.2cm} & \huge{\textsc{\textbf{\UPSTItitreEnTete}}}  \ifdef{\UPSTIsousTitreEnTete}{\linebreak\Large{\UPSTIsousTitreEnTete}}{} &  \tabularnewline
+     	\rule{0cm}{2.2cm} & \ifdef{\UPSTIsurTitreEnTete}{\Large{\UPSTIsurTitreEnTete}\linebreak}{} \huge{\textsc{\textbf{\UPSTItitreEnTete}}}  \ifdef{\UPSTIsousTitreEnTete}{\linebreak\Large{\UPSTIsousTitreEnTete}}{} &  \tabularnewline
      	\rcline{2-3}
 % v1.0    	\rule[-0.2cm]{0cm}{0.8cm} & \ifdef{\UPSTImessage}{\UPSTImessage}{\UPSTItypeDocument} & \ifdef{\UPSTIduree}{ \normalsize{\UPSTIduree} - }{}v\UPSTInumeroVersion \ifnumequal{1}{\UPSTIidVersionDocumentDef}{\textcolor{UPSTIcouleurCorrige}{\UPSTIversionProf}}{}\tabularnewline
     	\rule[0.4cm]{0cm}{0.3cm} & \ifdef{\UPSTImessage}{\UPSTImessage}{\UPSTItypeDocument} & \ifdef{\UPSTIduree}{ \normalsize{\UPSTIduree} - }{}v\UPSTInumeroVersion \ifnumequal{1}{\UPSTIidVersionDocumentDef}{\textcolor{UPSTIcouleurCorrige}{\UPSTIversionProf}}{}\tabularnewline
