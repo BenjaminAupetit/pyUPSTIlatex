@@ -465,6 +465,8 @@ def compile(ctx, path, mode, dry_run, verbose):
 
                     if nb_documents > 1:
                         number_label = f"{idx:0{num_width}d}"
+                        if idx > 1:
+                            msg.separateur2()
                         msg.info(
                             f"{COLOR_DARK_GRAY}{number_label}/{nb_documents} - "
                             f"{COLOR_RESET}{doc['filename']}"

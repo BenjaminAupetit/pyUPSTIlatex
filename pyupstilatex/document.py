@@ -2796,7 +2796,36 @@ class UPSTILatexDocument:
         signature = hmac.new(secret_key, payload.encode(), hashlib.sha256).hexdigest()
         headers = {"X-Signature": signature}
 
+        def format_webhook_warning(
+            default_message: str,
+            *,
+            response: Optional[Any] = None,
+            exception: Optional[Exception] = None,
+        ) -> str:
+            if compilation_options["verbose"] not in ["all"]:
+                return default_message
+
+            details = [default_message]
+            if exception is not None:
+                details.append(f"Détail : {exception}")
+
+            if response is not None:
+                details.append(f"Code HTTP : {response.status_code}")
+
+                content_type = response.headers.get("content-type")
+                if content_type:
+                    details.append(f"Content-Type : {content_type}")
+
+                raw_response = (response.text or "").strip()
+                details.append(
+                    "Réponse brute du webhook : "
+                    f"{raw_response if raw_response else '<vide>'}"
+                )
+
+            return "\n".join(details)
+
         if not compilation_options["dry_run"]:
+            response = None
             try:
                 response = requests.post(webhook_url, data=payload, headers=headers)
                 if response.status_code != 202:
@@ -2804,20 +2833,20 @@ class UPSTILatexDocument:
                         f"Code de statut inattendu : {response.status_code}"
                     )
             except Exception as e:
-                if compilation_options["verbose"] in ["all"]:
-                    msg_webhook = f"{e}."
-                else:
-                    msg_webhook = (
-                        "Erreur lors de l'appel au webhook. Executer "
-                        "pyupstilatex compile avec l'option --verbose all pour en "
-                        "savoir plus."
-                    )
+                msg_webhook = format_webhook_warning(
+                    "Erreur lors de l'appel au webhook. Executer pyupstilatex "
+                    "compile avec l'option --verbose all pour en savoir plus.",
+                    response=response,
+                    exception=e,
+                )
                 return "warning", [[msg_webhook, "warning"]]
 
             try:
                 response_data = response.json()
-            except Exception:
+                json_error = None
+            except Exception as e:
                 response_data = {}
+                json_error = e
 
             if isinstance(response_data, list):
                 webhook_response = response_data[0] if response_data else {}
@@ -2858,10 +2887,14 @@ class UPSTILatexDocument:
                 ]
 
             else:
+                msg_webhook = format_webhook_warning(
+                    "Quelque chose d'étrange s'est passé lors de l'appel au webhook.",
+                    response=response,
+                    exception=json_error,
+                )
                 return "warning", [
                     [
-                        "Quelque chose d'étrange s'est passé lors de l'appel au "
-                        "webhook.",
+                        msg_webhook,
                         "warning",
                     ]
                 ]
