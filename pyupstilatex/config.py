@@ -394,6 +394,7 @@ class OSConfig:
     dossier_poly: str
     dossier_poly_backup_yaml: str
     dossier_poly_page_de_garde: str
+    dossier_noms_dossiers_en_minuscule: bool
 
     @classmethod
     def from_env(cls) -> "OSConfig":
@@ -445,6 +446,9 @@ class OSConfig:
             dossier_poly_backup_yaml=get_str("OS_DOSSIER_POLY_BACKUP_YAML", "_bak"),
             dossier_poly_page_de_garde=get_str(
                 "OS_DOSSIER_POLY_PAGE_DE_GARDE", "page_de_garde"
+            ),
+            dossier_noms_dossiers_en_minuscule=get_bool(
+                "OS_DOSSIER_NOMS_DOSSIERS_EN_MINUSCULE", True
             ),
         )
 

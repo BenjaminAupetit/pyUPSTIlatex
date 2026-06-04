@@ -1,7 +1,9 @@
 import fnmatch
 import json
 import os
+import re
 import shutil
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -1471,7 +1473,66 @@ def prepare_for_pyupstilatex_v2(
                         ]
                     )
 
-        # === 3. Modifier les fichiers tex pour modifier src et images ===
+        # === 3. Normaliser les noms des sous-dossiers dans src ===
+        renames_dossiers: list[tuple[str, str]] = []
+        if cfg.os.dossier_noms_dossiers_en_minuscule:
+            dossier_src = (
+                nouveau_dossier_latex
+                if nouveau_dossier_latex.exists()
+                else ancien_dossier_latex
+            )
+            if dossier_src.exists() and dossier_src.is_dir():
+
+                def _normaliser_nom(nom: str) -> str:
+                    """Supprime accents, met en minuscule, remplace espaces par '_'."""
+                    nfkd = unicodedata.normalize("NFKD", nom)
+                    sans_accents = "".join(
+                        c for c in nfkd if not unicodedata.combining(c)
+                    )
+                    en_minuscule = sans_accents.lower()
+                    normalise = re.sub(r"[\s\-]+", "_", en_minuscule)
+                    normalise = re.sub(r"[^\w]", "", normalise)
+                    return normalise.strip("_")
+
+                # Traiter du plus profond au plus haut pour éviter les conflits
+                sous_dossiers = sorted(
+                    [p for p in dossier_src.rglob("*") if p.is_dir()],
+                    key=lambda p: len(p.parts),
+                    reverse=True,
+                )
+                for sous_dossier in sous_dossiers:
+                    nom_normalise = _normaliser_nom(sous_dossier.name)
+                    if not nom_normalise or nom_normalise == sous_dossier.name:
+                        continue
+                    nouveau_chemin = sous_dossier.parent / nom_normalise
+                    try:
+                        if nouveau_chemin.exists():
+                            if sous_dossier.resolve() == nouveau_chemin.resolve():
+                                sous_dossier.rename(nouveau_chemin)
+                                renames_dossiers.append(
+                                    (sous_dossier.name, nom_normalise)
+                                )
+                            else:
+                                messages.append(
+                                    [
+                                        f"Le dossier {nouveau_chemin.name} existe déjà,"
+                                        f" impossible de renommer {sous_dossier.name}",
+                                        "warning",
+                                    ]
+                                )
+                        else:
+                            sous_dossier.rename(nouveau_chemin)
+                            renames_dossiers.append((sous_dossier.name, nom_normalise))
+                    except Exception as e:
+                        messages.append(
+                            [
+                                f"Erreur lors du renommage de {sous_dossier.name} :"
+                                f" {e}",
+                                "warning",
+                            ]
+                        )
+
+        # === 4. Modifier les fichiers tex pour modifier src et images ===
         from .document import UPSTILatexDocument
 
         doc, doc_errors = UPSTILatexDocument.from_path(str(chemin_fichier))
@@ -1507,6 +1568,11 @@ def prepare_for_pyupstilatex_v2(
             cfg.legacy.dossier_latex_sources_images + "/",
             cfg.os.dossier_latex_sources_images + "/",
         )
+        # Appliquer les renommages de sous-dossiers effectués en section 3
+        for ancien_nom, nouveau_nom in renames_dossiers:
+            contenu_modifie = contenu_modifie.replace(
+                "/" + ancien_nom + "/", "/" + nouveau_nom + "/"
+            )
 
         # Sauvegarder si le contenu a changé
         if contenu_modifie != contenu_fichier:

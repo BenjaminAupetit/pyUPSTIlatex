@@ -1,6 +1,6 @@
 {
-  "version": "0.5.28",
-  "date": "30/05/2026",
+  "version": "0.5.36",
+  "date": "04/06/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -535,6 +535,20 @@
       "domaine": null,
       "alternatives": null
     },
+    "chaine-info-puissance": {
+      "nom": "Chaîne d'info - chaîne de puissance",
+      "slug": "chaine-info-puissance",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "Chaîne d'info - chaîne d'énergie"
+    },
+    "cinematique-graphique": {
+      "nom": "Cinématique graphique",
+      "slug": "cinematique-graphique",
+      "thematique": "cinematique-graphique",
+      "domaine": null,
+      "alternatives": null
+    },
     "cinetique": {
       "nom": "Cinétique",
       "slug": "cinetique",
@@ -542,12 +556,110 @@
       "domaine": null,
       "alternatives": null
     },
+    "cisaillement": {
+      "nom": "Cisaillement",
+      "slug": "cisaillement",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": null
+    },
+    "codage": {
+      "nom": "Codage",
+      "slug": "codage",
+      "thematique": "informatique",
+      "domaine": null,
+      "alternatives": "programmation,écriture de code,python"
+    },
+    "concentration-de-contrainte": {
+      "nom": "Concentration de contrainte",
+      "slug": "concentration-de-contrainte",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": null
+    },
+    "correcteur-ap": {
+      "nom": "Correcteur AP",
+      "slug": "correcteur-ap",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Correcteur à avance de phase, correcteur rp, correcteur à retard de phase"
+    },
+    "correcteur-p": {
+      "nom": "Correcteur P",
+      "slug": "correcteur-p",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Correcteur proportionnel"
+    },
+    "correcteur-pi": {
+      "nom": "Correcteur PI",
+      "slug": "correcteur-pi",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Correcteur proportionnel intégral, correcteur intégral"
+    },
     "deuxieme-ordre": {
       "nom": "Deuxième ordre",
       "slug": "deuxieme-ordre",
       "thematique": "slci",
       "domaine": null,
+      "alternatives": "2ème ordre, second ordre, 2nd ordre"
+    },
+    "diagramme-d-activite": {
+      "nom": "Diagramme d'Activité (act)",
+      "slug": "diagramme-d-activite",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "act"
+    },
+    "diagramme-d-etat": {
+      "nom": "Diagramme d'État (stm)",
+      "slug": "diagramme-d-etat",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "stm,Machine d'état"
+    },
+    "diagramme-de-blocs-internes": {
+      "nom": "Diagramme de Blocs Internes (ibd)",
+      "slug": "diagramme-de-blocs-internes",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
       "alternatives": null
+    },
+    "diagramme-de-cas-d-utilisation": {
+      "nom": "Diagramme de Cas d'Utilisation (uc)",
+      "slug": "diagramme-de-cas-d-utilisation",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "uc"
+    },
+    "diagramme-de-contexte": {
+      "nom": "Diagramme de Contexte",
+      "slug": "diagramme-de-contexte",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": null
+    },
+    "diagramme-de-definition-de-blocs": {
+      "nom": "Diagramme de Définition de Blocs (bdd)",
+      "slug": "diagramme-de-definition-de-blocs",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "bdd"
+    },
+    "diagramme-de-sequence": {
+      "nom": "Diagramme de Séquence (seq)",
+      "slug": "diagramme-de-sequence",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "seq"
+    },
+    "diagramme-des-exigences": {
+      "nom": "Diagramme des Exigences (req)",
+      "slug": "diagramme-des-exigences",
+      "thematique": "analyse-et-modelisation-des-systemes",
+      "domaine": null,
+      "alternatives": "req"
     },
     "energie-cinetique": {
       "nom": "Énergie Cinétique",
@@ -556,12 +668,19 @@
       "domaine": null,
       "alternatives": null
     },
+    "equation-de-deformee": {
+      "nom": "Équation de la déformée",
+      "slug": "equation-de-deformee",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": null
+    },
     "equations-horaires": {
       "nom": "Équations horaires",
       "slug": "equations-horaires",
-      "thematique": null,
-      "domaine": "meca",
-      "alternatives": null
+      "thematique": "cinematique",
+      "domaine": null,
+      "alternatives": "Équations de mouvement"
     },
     "fermeture-cinematique": {
       "nom": "Fermeture cinématique",
@@ -576,6 +695,20 @@
       "thematique": "modelisation-geometrique-des-systemes-de-solides",
       "domaine": null,
       "alternatives": "Loi entrée/sortie, Loi entrée-sortie"
+    },
+    "flexion": {
+      "nom": "Flexion",
+      "slug": "flexion",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": "Flexion simple,Flexion composée"
+    },
+    "frequentiel": {
+      "nom": "Fréquentiel",
+      "slug": "frequentiel",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "diagramme de bode, bode"
     },
     "frottements": {
       "nom": "Frottements",
@@ -605,12 +738,33 @@
       "domaine": null,
       "alternatives": "Isostatisme, Hyperstatique, Isostatique"
     },
+    "identification-frequentielle": {
+      "nom": "Identification fréquentielle",
+      "slug": "identification-frequentielle",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": null
+    },
+    "identification-temporelle": {
+      "nom": "Identification temporelle",
+      "slug": "identification-temporelle",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": null
+    },
     "inertie-equivalente": {
       "nom": "Inertie équivalente",
       "slug": "inertie-equivalente",
       "thematique": "energetique",
       "domaine": null,
       "alternatives": "Masse équivalente"
+    },
+    "laplace": {
+      "nom": "Laplace",
+      "slug": "laplace",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Domaine de Laplace"
     },
     "lecture-de-plan": {
       "nom": "Lecture de plan",
@@ -640,6 +794,13 @@
       "domaine": null,
       "alternatives": "Opérateur d'Inertie"
     },
+    "modele-de-hertz": {
+      "nom": "Modèle de Hertz",
+      "slug": "modele-de-hertz",
+      "thematique": "theorie-de-hertz",
+      "domaine": null,
+      "alternatives": null
+    },
     "modele-local": {
       "nom": "Modèle local des AM",
       "slug": "modele-local",
@@ -665,6 +826,13 @@
       "nom": "Premier ordre",
       "slug": "premier-ordre",
       "thematique": "slci",
+      "domaine": null,
+      "alternatives": "1er ordre"
+    },
+    "probleme-hyperstatique": {
+      "nom": "Problème hyperstatique",
+      "slug": "probleme-hyperstatique",
+      "thematique": "resistance-des-materiaux",
       "domaine": null,
       "alternatives": null
     },
@@ -710,6 +878,27 @@
       "domaine": null,
       "alternatives": null
     },
+    "ordre-superieur-a-deux": {
+      "nom": "Système d'ordre supérieur à 2",
+      "slug": "ordre-superieur-a-deux",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": null
+    },
+    "systeme-discret": {
+      "nom": "Système discret",
+      "slug": "systeme-discret",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": null
+    },
+    "temporel": {
+      "nom": "Temporel",
+      "slug": "temporel",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": null
+    },
     "huygens-matrice-inertie": {
       "nom": "Théorème de Huygens",
       "slug": "huygens-matrice-inertie",
@@ -731,12 +920,54 @@
       "domaine": null,
       "alternatives": null
     },
+    "torseur-de-cohesion": {
+      "nom": "Torseur de cohésion",
+      "slug": "torseur-de-cohesion",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": "Torseur des efforts intérieurs"
+    },
+    "torseur-des-petits-deplacements": {
+      "nom": "Torseur des petits déplacements",
+      "slug": "torseur-des-petits-deplacements",
+      "thematique": "outils-mathematiques",
+      "domaine": null,
+      "alternatives": null
+    },
     "torseur-dynamique": {
       "nom": "Torseur Dynamique",
       "slug": "torseur-dynamique",
       "thematique": "principe-fondamental-de-la-dynamique",
       "domaine": null,
       "alternatives": null
+    },
+    "torsion": {
+      "nom": "Torsion",
+      "slug": "torsion",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": null
+    },
+    "traction-et-compression": {
+      "nom": "Traction et compression",
+      "slug": "traction-et-compression",
+      "thematique": "resistance-des-materiaux",
+      "domaine": null,
+      "alternatives": null
+    },
+    "tvf": {
+      "nom": "TVF",
+      "slug": "tvf",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Théorème de la valeur finale"
+    },
+    "tvi": {
+      "nom": "TVI",
+      "slug": "tvi",
+      "thematique": "slci",
+      "domaine": null,
+      "alternatives": "Théorème de la valeur initiale"
     },
     "vitesse-glissement": {
       "nom": "Vitesse de glissement",
@@ -801,23 +1032,29 @@
       "code": "ams",
       "parent": null
     },
-    "analyse-des-systemes": {
-      "nom": "Analyse des systèmes",
-      "slug": "analyse-des-systemes",
-      "code": "ads",
-      "parent": "analyse-et-modelisation-des-systemes"
-    },
-    "modelisation-des-systemes": {
-      "nom": "Modélisation des systèmes",
-      "slug": "modelisation-des-systemes",
-      "code": "mds",
-      "parent": "analyse-et-modelisation-des-systemes"
-    },
     "autres": {
       "nom": "Autres",
       "slug": "autres",
       "code": "aut",
       "parent": null
+    },
+    "chaine-d-information": {
+      "nom": "Chaîne d'information",
+      "slug": "chaine-d-information",
+      "code": "CI",
+      "parent": null
+    },
+    "reseaux": {
+      "nom": "Réseaux",
+      "slug": "reseaux",
+      "code": "res",
+      "parent": "chaine-d-information"
+    },
+    "systemes-a-evenements-discrets": {
+      "nom": "Systèmes à évènements discrets",
+      "slug": "systemes-a-evenements-discrets",
+      "code": "sed",
+      "parent": "chaine-d-information"
     },
     "cinematique": {
       "nom": "Cinématique",
@@ -836,24 +1073,6 @@
       "slug": "cinematique-graphique",
       "code": "cingr",
       "parent": "cinematique"
-    },
-    "commande-numerique-des-systemes": {
-      "nom": "Commande numérique des systèmes",
-      "slug": "commande-numerique-des-systemes",
-      "code": "com",
-      "parent": null
-    },
-    "reseaux": {
-      "nom": "Réseaux",
-      "slug": "reseaux",
-      "code": "res",
-      "parent": "commande-numerique-des-systemes"
-    },
-    "systemes-a-evenements-discrets": {
-      "nom": "Systèmes à évènements discrets",
-      "slug": "systemes-a-evenements-discrets",
-      "code": "sed",
-      "parent": "commande-numerique-des-systemes"
     },
     "dynamique": {
       "nom": "Dynamique",
@@ -1352,7 +1571,7 @@
     },
     "is_transfert_direct": {
       "label": "Transfert du cours",
-      "description": "`is_transfert_direct`: définit si le document est destiné à être utilisé en parallèle d'un cours. PAr exemple, un TD qui sert de fil rouge à un cours.\r\n\r\n\r\n\r\n```\r\n\r\nis_transfert_direct: true\r\n\r\n```\r\n\r\n\r\n\r\n- **valeurs possibles :** `bool`\r\n\r\n\r\n\r\n- **si absent des métadonnées :** `false`",
+      "description": "`is_transfert_direct`: définit si le document est destiné à être utilisé en parallèle d'un cours. Par exemple, un TD qui sert de fil rouge à un cours.\r\n\r\n\r\n\r\n```\r\n\r\nis_transfert_direct: true\r\n\r\n```\r\n\r\n\r\n\r\n- **valeurs possibles :** `bool`\r\n\r\n\r\n\r\n- **si absent des métadonnées :** `false`",
       "parametres": {
         "tex_key": "UPSTITDTransfert",
         "tex_type": "command_declaration",

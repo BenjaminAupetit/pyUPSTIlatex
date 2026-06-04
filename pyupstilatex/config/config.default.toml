@@ -82,6 +82,7 @@ latex_sources_images = "images"                 # Nom du sous-dossier de latex_s
 poly = "_poly"                                  # Nom du dossier créé lors de la création d'un poly
 poly_backup_yaml = "_bak"                       # Nom du dossier de backup (sous-dossier de poly) des fichiers YAML lors de la création d'un poly
 poly_page_de_garde = "page_de_garde"            # Nom du dossier (sous-dossier de poly) contenant la page de garde générée pour un poly
+noms_dossiers_en_minuscule = true               # Si on veut forcer les noms des sous-dossiers du dossier src en minuscules lors de la migration depuis un fichier ancien. paramètres (false)
 
 #--------------------------------------------------------------------------------------
 # Dossiers à traiter et fichiers à exclure
