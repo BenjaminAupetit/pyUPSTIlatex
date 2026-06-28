@@ -1,7 +1,6 @@
 import concurrent.futures
 import glob
 import inspect
-import os
 import shutil
 import subprocess
 import threading
@@ -2188,7 +2187,7 @@ class UPSTILatexDocument:
             return resultat
 
         afficher_avancee()
-        nb_workers = min(nb_jobs, os.cpu_count() or 4) or 1
+        nb_workers = min(nb_jobs, max(cfg.compilation.compilation_paralleles, 1)) or 1
         with concurrent.futures.ThreadPoolExecutor(max_workers=nb_workers) as executor:
             resultats = list(
                 executor.map(
