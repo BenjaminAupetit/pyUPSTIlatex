@@ -339,6 +339,7 @@ class UPSTILatexDocument:
         mode: str = "normal",
         verbose: str = "normal",
         dry_run: bool = False,
+        force: bool = False,
         override_compilation_params: Optional[Dict] = None,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le document LaTeX.
@@ -360,6 +361,9 @@ class UPSTILatexDocument:
         dry_run : bool, optional
             Si True, exécute un "dry run" où les actions sont affichées sans être
             réellement effectuées.
+        force : bool, optional
+            Si True, force la (re)compilation de toutes les versions même si
+            leur PDF de destination existe déjà et est à jour. Défaut : False.
         override_compilation_params : Optional[Dict], optional
             Dictionnaire de paramètres de compilation à forcer. Ces paramètres
             écrasent tous les autres (cfg + fichier local). Défaut : None.
@@ -384,6 +388,7 @@ class UPSTILatexDocument:
             "mode": mode if mode in valid_modes else "normal",
             "verbose": verbose if verbose in valid_verbose else "normal",
             "dry_run": dry_run,
+            "force": force,
         }
 
         # Initialisation du statut global
@@ -2095,6 +2100,31 @@ class UPSTILatexDocument:
                 }
             )
 
+        # Détermine, pour chaque tâche, si une (re)compilation est nécessaire :
+        # pas besoin si le PDF de destination existe déjà et est plus récent
+        # que le fichier .tex source (sauf si l'option --force est utilisée).
+        force = compilation_options.get("force", False)
+        build_dir_path = self.file.parent / cfg.os.dossier_latex_build
+        for job in compilation_job_list:
+            if force:
+                job["a_compiler"] = True
+                continue
+
+            fichier_tex_path = self.file.parent / f"{job['fichier_tex']}.tex"
+            fichier_destination = build_dir_path / f"{job['job_name']}.pdf"
+
+            if not fichier_destination.exists():
+                job["a_compiler"] = True
+            elif fichier_tex_path.exists():
+                # On compare les dates de modification pour savoir si on doit recompiler
+                job["a_compiler"] = (
+                    fichier_destination.stat().st_mtime
+                    < fichier_tex_path.stat().st_mtime
+                )
+            else:
+                # Source introuvable : on compile
+                job["a_compiler"] = True
+
         return compilation_job_list, messages
 
     def _cp_compiler_versions(
@@ -2204,8 +2234,28 @@ class UPSTILatexDocument:
             `self._liste_fichiers["compiled"]` (ou None si rien n'a pu être
             compilé), et "messages" la liste des messages d'erreur éventuels.
         """
-        nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
         build_dir_path = output_dir / build_dir
+
+        # Si la version est déjà à jour (cf. _cp_determiner_versions_a_compiler),
+        # on évite de la recompiler.
+        if not fic.get("a_compiler", True):
+            compiled_entry = {
+                "path": build_dir_path / f"{fic['job_name']}.pdf",
+                "nature_fichier": fic["nature_fichier"],
+                "type_fichier": fic["type_fichier"],
+            }
+            messages: List[List[str]] = []
+            if compilation_options["verbose"] in ["normal", "all"]:
+                messages.append(
+                    [
+                        f"Compilation de la version {fic['affichage_nom_version']} "
+                        "ignorée (déjà à jour)",
+                        "info",
+                    ]
+                )
+            return {"compiled_entry": compiled_entry, "messages": messages}
+
+        nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
 
         # Pour savoir si on doit faire une compilation bibtex
         compile_bibtex = (
